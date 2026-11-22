@@ -23,7 +23,7 @@ def best_move(b):
             try:
                 if engine is None:
                     engine = chess.engine.SimpleEngine.popen_uci(SF)
-                    engine.configure({"Threads": 1, "Hash": 64})
+                    engine.configure({"Threads": int(os.environ.get("THREADS", 1)), "Hash": int(os.environ.get("HASH", 64))})
                 info = engine.analyse(b, chess.engine.Limit(time=THINK))
                 break
             except chess.engine.EngineError:  # engine died: restart once

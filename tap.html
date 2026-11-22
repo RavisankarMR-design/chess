@@ -24,6 +24,7 @@
   <button id="new">New game</button>
   <button id="undo">Undo</button>
   <button id="play" style="display:none">Play best</button>
+  <label><input type="checkbox" id="auto" checked> auto my move</label>
 </div>
 <div id="board"></div>
 <div id="out">Loading…</div>
@@ -31,22 +32,27 @@
 <script>
 const $=id=>document.getElementById(id);
 const GL={p:"♟︎",q:"♛︎",r:"♜︎",b:"♝︎",n:"♞︎",k:"♚︎"};
-let S=null, sel=null, M=[], color='white', busy=false;
+let S=null, sel=null, M=[], color='white', busy=false, mine=null;
 try{const s=JSON.parse(localStorage.game||'{}');M=s.moves||[];color=s.color||'white'}catch(e){}
 $('color').value=color;
+try{$('auto').checked=localStorage.auto!=='0'}catch(e){}
+$('auto').onchange=()=>{try{localStorage.auto=$('auto').checked?'1':'0'}catch(e){}};
+const meTurn=n=>color=='white'?n%2==0:n%2==1; // is it my turn after n moves
 
 // the phone keeps the game (server may sleep on the free plan); server just replays + analyses it
-async function sync(moves,col=color){
+async function sync(moves,col=color,auto=true){
   if(busy)return;busy=true;
-  $('out').textContent='Thinking… (first load can take up to a minute while the server wakes up)';
+  $('out').textContent='Thinking…';
   try{
     const r=await (await fetch('/g/state?color='+col+'&moves='+encodeURIComponent(moves.join(' ')))).json();
     if(r.err){$('out').textContent='⚠ '+r.err;return}
     S=r;M=r.moves;color=col;sel=null;
     try{localStorage.game=JSON.stringify({moves:M,color})}catch(e){}
     render();
-  }catch(e){$('out').textContent='Connection error. Check internet and try again.'}
+  }catch(e){$('out').textContent='Connection error. Check the server and try again.';return}
   finally{busy=false}
+  // my turn: play the engine's move automatically, so only the opponent's moves need tapping
+  if(auto&&$('auto').checked&&S&&S.best&&!S.over){mine=S.best;return sync([...M,S.best.uci],color)}
 }
 function pieces(fen){
   const m={};fen.split(' ')[0].split('/').forEach((row,i)=>{let f=0;
@@ -63,7 +69,8 @@ function render(){
     const f=wb?c:7-c,k=wb?7-r:r,sq='abcdefgh'[f]+(k+1),d=document.createElement('div');
     let cls='c '+((f+k)%2?'l':'d');
     if(S.last&&(sq==S.last.slice(0,2)||sq==S.last.slice(2,4)))cls+=' last';
-    if(best&&sq==best.uci.slice(0,2))cls+=' from'; if(best&&sq==best.uci.slice(2,4))cls+=' to';
+    const hm=best||(mine&&S.last==mine.uci?mine:null);
+    if(hm&&sq==hm.uci.slice(0,2))cls+=' from'; if(hm&&sq==hm.uci.slice(2,4))cls+=' to';
     if(sq==sel)cls+=' sel'; if(tg.includes(sq))cls+=' tgt';
     d.className=cls;
     const p=P[sq];if(p){const s=document.createElement('span');s.className=p==p.toUpperCase()?'w':'k';s.textContent=GL[p.toLowerCase()];d.appendChild(s)}
@@ -72,6 +79,7 @@ function render(){
   const o=$('out');
   if(S.over)o.textContent=S.over;
   else if(best)o.innerHTML=`<b>Your move: ${best.san}</b> (${best.uci}) eval ${best.eval}<br><small>Play it on the bot, then tap "Play best" (or tap your own move).</small>`;
+  else if(mine&&S.last==mine.uci)o.innerHTML=`<b>Play on the bot: ${mine.san}</b> (${mine.uci}) eval ${mine.eval}<br><small>Then tap the opponent's reply here (piece, then destination).</small>`;
   else o.innerHTML=`<b>Opponent's turn.</b><br><small>Tap the piece the bot moved, then its destination.</small>`;
   $('play').style.display=best?'':'none';
   $('moves').textContent=S.san;
@@ -81,8 +89,8 @@ function tap(sq){
   if(sel&&targets().includes(sq))return sync([...M,sel+sq]);
   sel=S.legal.some(m=>m.startsWith(sq))?sq:null;render();
 }
-$('new').onclick=()=>sync([],$('color').value);
-$('undo').onclick=()=>sync(M.slice(0,-1));
-$('play').onclick=()=>sync([...M,S.best.uci]);
-sync(M);
+$('new').onclick=()=>{mine=null;sync([],$('color').value)};
+$('undo').onclick=()=>{let n=Math.max(0,M.length-1);if(n>0&&meTurn(n))n--;sync(M.slice(0,n),color,!meTurn(n))};
+$('play').onclick=()=>{mine=S.best;sync([...M,S.best.uci])};
+sync(M,color,false);
 </script>
