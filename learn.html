@@ -65,8 +65,8 @@ function parseFen(fen){
 // o: {pieces, hl:{sq:cls}, dots:[], rings:[], picks:[], onTap}
 function draw(el,fen,o={}){
   const P=o.pieces||parseFen(fen);el.innerHTML='';el.className='b';
-  for(let r=0;r<8;r++)for(let c=0;c<8;c++){
-    const k=7-r,sq=sqName(c,k),d=document.createElement('div');
+  for(let r=0;r<8;r++)for(let cc=0;cc<8;cc++){
+    const c=o.flip?7-cc:cc,k=o.flip?r:7-r,sq=sqName(c,k),d=document.createElement('div');
     let cls='c '+((c+k)%2?'l':'d');
     if(o.hl&&o.hl[sq])cls+=' '+o.hl[sq];
     if(o.picks&&o.picks.includes(sq))cls+=' pick';
@@ -74,7 +74,7 @@ function draw(el,fen,o={}){
     if(o.rings&&o.rings.includes(sq))cls+=' ring';
     d.className=cls;
     const p=P[sq];if(p){const s=document.createElement('span');s.className=p==p.toUpperCase()?'w':'k';s.textContent=GL[p.toLowerCase()];d.appendChild(s)}
-    if(c==0||k==0){const t=document.createElement('i');t.className='coord';t.textContent=(c==0?(k+1):'')+(k==0?'abcdefgh'[c]:'');d.appendChild(t)}
+    if(cc==0||r==7){const t=document.createElement('i');t.className='coord';t.textContent=(cc==0?(k+1):'')+(r==7?'abcdefgh'[c]:'');d.appendChild(t)}
     if(o.onTap)d.onclick=()=>o.onTap(sq);
     el.appendChild(d);
   }
@@ -279,6 +279,9 @@ function home(){
   updateBar();
   const app=$('app');
   app.innerHTML='<h1>Chess course</h1><p class="dim">From your first move to beating strong bots. Each stage has lessons and training; pass the training to unlock the next stage. Progress is saved on this device.</p>';
+  const pz=document.createElement('div');pz.className='card stage';
+  pz.innerHTML=`<div class="n">\u265f</div><div><b>Puzzle trainer</b><br><small>5,700 real puzzles from Lichess, by theme and difficulty. Your puzzle rating: <b>${Math.round(PST.rating)}</b> \u00b7 solved ${PST.solved}</small></div>`;
+  pz.onclick=()=>{location.hash='puzzles'};app.appendChild(pz);
   const pr=document.createElement('div');pr.className='card';
   pr.innerHTML=`<b>♞ Practice game with coach</b><p class="dim">Play a free game as White. After every move the coach rates it and explains why: hanging pieces, missed wins, mate threats, opening mistakes.</p>
   <div class="row"><select id="plvl"><option value="0">Beginner bot</option><option value="1">Easy bot</option><option value="2">Medium bot (~1500)</option><option value="3">Hard bot (~2000)</option><option value="4">Full strength</option></select><button class="pri">Play</button></div><div class="area"></div>`;
@@ -372,13 +375,13 @@ RUN.notation=(el,d,onPass)=>{
 };
 
 // shared interactive board: tap own piece then target; calls onMove(uci)
-function playBoard(bd,getPos,onMove,hl={}){
+function playBoard(bd,getPos,onMove,hl=()=>({}),flip=()=>false){
   let sel=null;
   const paint=()=>{const p=getPos();if(!p)return;
     const dots=sel?Object.keys(p.legal).filter(m=>m.startsWith(sel)).map(m=>m.slice(2,4)):[];
-    draw(bd,p.fen,{hl:sel?{...hl(),[sel]:'hC'}:hl(),dots,onTap:sq=>{
+    draw(bd,p.fen,{flip:flip(),hl:sel?{...hl(),[sel]:'hC'}:hl(),dots,onTap:sq=>{
       const p2=getPos();if(!p2||p2.busy)return;
-      if(sel){const m=Object.keys(p2.legal).find(u=>u.startsWith(sel+sq));if(m){sel=null;onMove(m);return}}
+      if(sel){const ks=Object.keys(p2.legal),m=ks.find(u=>u==sel+sq+'q')||ks.find(u=>u.startsWith(sel+sq));if(m){sel=null;onMove(m);return}}
       sel=Object.keys(p2.legal).some(u=>u.startsWith(sq))?sq:null;paint()}})};
   return paint;
 }
@@ -455,7 +458,90 @@ RUN.play=(el,d,onPass)=>{
   start();
 };
 
+/* ================= puzzle trainer (Lichess puzzle database, CC0) ================= */
+let PST={rating:600,solved:0,failed:0,streak:0,best:0,n:0,recent:[]};
+try{Object.assign(PST,JSON.parse(localStorage.pzStats||'{}'))}catch(e){}
+const savePst=()=>{try{localStorage.pzStats=JSON.stringify(PST)}catch(e){}};
+let PUZ=null;
+const THEMES=[['','All themes'],['mateIn1','Mate in 1'],['mateIn2','Mate in 2'],['mateIn3','Mate in 3'],['fork','Fork'],['pin','Pin'],['skewer','Skewer'],
+ ['discoveredAttack','Discovered attack'],['hangingPiece','Hanging piece'],['backRankMate','Back-rank mate'],['sacrifice','Sacrifice'],['deflection','Deflection'],
+ ['attraction','Attraction'],['doubleCheck','Double check'],['trappedPiece','Trapped piece'],['promotion','Promotion'],['advancedPawn','Advanced pawn'],
+ ['defensiveMove','Defensive move'],['quietMove','Quiet move'],['zugzwang','Zugzwang'],['opening','Opening'],['middlegame','Middlegame'],
+ ['endgame','Endgame'],['rookEndgame','Rook endgame'],['pawnEndgame','Pawn endgame'],['queenEndgame','Queen endgame']];
+const TNAME=Object.fromEntries(THEMES);
+
+async function trainer(){
+  const app=$('app');updateBar();
+  app.innerHTML=`<p><a href="#" style="color:var(--acc)">&larr; Course</a></p><h1>Puzzle trainer</h1>
+  <div class="card" id="pzstats"></div>
+  <div class="row"><select id="pztheme">${THEMES.map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
+  <div class="msg" id="pzmsg">Loading puzzles…</div><div id="pzbd"></div><div class="msg" id="pzinfo" style="font-weight:400"></div>
+  <div class="row" id="pzrow"></div><p class="dim" style="font-size:13px;text-align:center">Puzzles from the free <a style="color:var(--acc)" href="https://database.lichess.org/#puzzles">Lichess puzzle database</a> (CC0). Your rating goes up when you solve on the first try and down when you miss or use a hint.</p>`;
+  try{$('pztheme').value=localStorage.pzTheme||''}catch(e){}
+  $('pztheme').onchange=()=>{try{localStorage.pzTheme=$('pztheme').value}catch(e){};next()};
+  if(!PUZ)PUZ=await (await fetch('/puzzles.json')).json();
+  let z=null,P=null,idx=0,rated=false,hinted=false,last={},flip=false;
+  const msg=$('pzmsg'),info=$('pzinfo'),row=$('pzrow'),bd=$('pzbd');
+  const paint=playBoard(bd,()=>P,move,()=>last,()=>flip);
+  const stats=()=>{const t=PST.solved+PST.failed;$('pzstats').innerHTML=`Rating <b style="font-size:20px">${Math.round(PST.rating)}</b> &nbsp; Solved ${PST.solved} &nbsp; Accuracy ${t?Math.round(100*PST.solved/t):0}% &nbsp; Streak ${PST.streak} (best ${PST.best})`};
+  function rate(win){ // Elo update, once per puzzle
+    if(rated)return;rated=true;
+    const E=1/(1+Math.pow(10,(z[3]-PST.rating)/400)),K=PST.n<20?60:32;
+    PST.rating=Math.max(100,PST.rating+K*((win&&!hinted?1:0)-E));PST.n++;
+    if(win&&!hinted){PST.solved++;PST.streak++;PST.best=Math.max(PST.best,PST.streak)}else{PST.failed++;PST.streak=0}
+    PST.recent=[z[0],...PST.recent].slice(0,400);savePst();stats();
+  }
+  function pick(){
+    const th=$('pztheme').value,pool=PUZ.filter(p=>(!th||p[4].includes(th))&&!PST.recent.includes(p[0]));
+    for(const w of [125,250,500,5000]){const c=pool.filter(p=>Math.abs(p[3]-PST.rating)<=w);if(c.length>=3)return c[Math.floor(Math.random()*c.length)]}
+    return pool[Math.floor(Math.random()*pool.length)]||PUZ[Math.floor(Math.random()*PUZ.length)];
+  }
+  async function next(){
+    z=pick();idx=0;rated=false;hinted=false;
+    P=await api('/t/pos',{fen:z[1]});flip=P.turn=='b';last={[z[5].slice(0,2)]:'hB',[z[5].slice(2,4)]:'hB'};paint();
+    msg.className='msg';msg.textContent=`${P.turn=='w'?'White':'Black'} to move – find the best move`;
+    info.innerHTML=`<small>Puzzle rating ${z[3]} · red = opponent's last move</small>`;
+    row.innerHTML='<button>Hint</button><button>Show solution</button><button>Skip</button>';
+    row.children[0].onclick=()=>{hinted=true;last={[z[2][idx].slice(0,2)]:'hC'};paint();info.innerHTML='<small>Hint: move the highlighted piece (counts as a miss for your rating).</small>'};
+    row.children[1].onclick=()=>{rate(false);showSolution()};
+    row.children[2].onclick=next;
+  }
+  async function apply(uci){const r=await api('/t/move',{fen:P.fen,uci,coach:0,reply:0});P=r.pos;last={[uci.slice(0,2)]:'hC',[uci.slice(2,4)]:'hA'};paint();return r}
+  async function move(uci){
+    const want=z[2][idx];P.busy=true;
+    if(uci.slice(0,4)==want.slice(0,4)){
+      await apply(want);idx++;
+      if(idx>=z[2].length)return solved();
+      info.innerHTML='<small>Correct! Keep going…</small>';P.busy=true;
+      await new Promise(r=>setTimeout(r,450));
+      const r=await apply(z[2][idx]);idx++;   // opponent's forced reply
+      last={[z[2][idx-1].slice(0,2)]:'hB',[z[2][idx-1].slice(2,4)]:'hB'};paint();
+      info.innerHTML=`<small>Opponent replied <b>${r.san}</b>. Your move.</small>`;return;
+    }
+    const r=await api('/t/move',{fen:P.fen,uci,coach:1,reply:0});
+    if(r.pos&&r.pos.mate){P=r.pos;last={[uci.slice(0,2)]:'hC',[uci.slice(2,4)]:'hA'};paint();return solved()}  // any checkmate counts
+    rate(false);P=r.pos;last={[uci.slice(0,2)]:'hB',[uci.slice(2,4)]:'hB'};P.busy=true;paint();
+    msg.className='msg no';msg.textContent=`Not the solution (${r.san}).`;
+    info.innerHTML=whyHtml(r.grade)||'';
+    row.innerHTML='<button class="pri">Show solution</button><button>Next puzzle</button>';
+    row.children[0].onclick=showSolution;row.children[1].onclick=next;
+  }
+  function solved(){
+    rate(true);P.busy=true;msg.className='msg ok';msg.textContent=hinted?'Solved (with hint).':'Solved! ✓';
+    info.innerHTML=`<small>Puzzle rating ${z[3]} · ${z[4].filter(t=>TNAME[t]).map(t=>TNAME[t]).join(', ')}</small>`;
+    row.innerHTML='<button class="pri">Next puzzle</button>';row.children[0].onclick=next;
+  }
+  async function showSolution(){
+    row.innerHTML='';P=await api('/t/pos',{fen:z[1]});paint();const sans=[];
+    for(const u of z[2]){await new Promise(r=>setTimeout(r,700));const r=await apply(u);sans.push(r.san)}
+    P.busy=true;msg.className='msg';msg.textContent='Solution: '+sans.join(' ');
+    info.innerHTML=`<small>Themes: ${z[4].filter(t=>TNAME[t]).map(t=>TNAME[t]).join(', ')||'tactics'}</small>`;
+    row.innerHTML='<button class="pri">Next puzzle</button>';row.children[0].onclick=next;
+  }
+  stats();next();
+}
+
 /* ================= router ================= */
-function route(){const m=location.hash.match(/^#s(\d+)/);m?stage(+m[1]-1):home();scrollTo(0,0)}
+function route(){const m=location.hash.match(/^#s(\d+)/);location.hash=='#puzzles'?trainer():m?stage(+m[1]-1):home();scrollTo(0,0)}
 addEventListener('hashchange',route);route();
 </script>

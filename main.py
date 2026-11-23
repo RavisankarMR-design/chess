@@ -6,6 +6,7 @@ from pathlib import Path
 import chess
 import chess.engine
 from fastapi import FastAPI
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 
 HERE = Path(__file__).parent
@@ -14,6 +15,7 @@ THINK = float(os.environ.get("THINK_SECS", "3"))
 GRADE = float(os.environ.get("GRADE_SECS", "0.3"))  # per analysis when grading a training move
 
 app = FastAPI()
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 engine = None
 lock = threading.Lock()
 
@@ -74,6 +76,11 @@ def index():
 @app.get("/learn")
 def learn():
     return FileResponse(HERE / "learn.html")
+
+
+@app.get("/puzzles.json")
+def puzzles():
+    return FileResponse(HERE / "puzzles.json", headers={"Cache-Control": "public, max-age=86400"})
 
 
 @app.get("/health")
