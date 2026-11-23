@@ -279,6 +279,11 @@ function home(){
   updateBar();
   const app=$('app');
   app.innerHTML='<h1>Chess course</h1><p class="dim">From your first move to beating strong bots. Each stage has lessons and training; pass the training to unlock the next stage. Progress is saved on this device.</p>';
+  const pr=document.createElement('div');pr.className='card';
+  pr.innerHTML=`<b>♞ Practice game with coach</b><p class="dim">Play a free game as White. After every move the coach rates it and explains why: hanging pieces, missed wins, mate threats, opening mistakes.</p>
+  <div class="row"><select id="plvl"><option value="0">Beginner bot</option><option value="1">Easy bot</option><option value="2">Medium bot (~1500)</option><option value="3">Hard bot (~2000)</option><option value="4">Full strength</option></select><button class="pri">Play</button></div><div class="area"></div>`;
+  pr.querySelector('button').onclick=()=>{pr.querySelector('.row').style.display='none';RUN.play(pr.querySelector('.area'),{level:+$('plvl').value,goal:'free',max:0},()=>{})};
+  app.appendChild(pr);
   STAGES.forEach((s,i)=>{
     const done=stageDone(i),open=unlocked(i),c=document.createElement('div');
     c.className='card stage'+(done?' done':'')+(open?'':' lock');
@@ -378,7 +383,8 @@ function playBoard(bd,getPos,onMove,hl={}){
   return paint;
 }
 const VCOL={best:'ok',excellent:'ok',good:'ok',inaccuracy:'mid',mistake:'no',blunder:'no'};
-const coachText=g=>g?`<span class="${VCOL[g.verdict]}">${g.verdict[0].toUpperCase()+g.verdict.slice(1)}</span>`+(g.verdict=='best'?'':` – best was <b>${g.best_san}</b>`):'';
+const whyHtml=g=>g&&g.why&&g.why.length?'<div style="font-weight:400;font-size:14.5px;text-align:left;max-width:380px;margin:6px auto 0">'+g.why.map(x=>'• '+x).join('<br>')+'</div>':'';
+const coachText=g=>g?`<span class="${VCOL[g.verdict]}">${g.verdict[0].toUpperCase()+g.verdict.slice(1)}</span>`+(g.verdict=='best'?'':` – best was <b>${g.best_san}</b>`)+whyHtml(g):'';
 
 RUN.puzzles=(el,d,onPass)=>{
   let i=0,ok=0,tries=0,P=null,last={},left=0;
@@ -406,7 +412,7 @@ RUN.puzzles=(el,d,onPass)=>{
     if(solved){if(!tries)ok++;msg.className='msg ok';msg.textContent=`Correct! ${r.san}`+(tries?' (with retries)':'');info.textContent='';row.innerHTML='<button class="pri">Next</button>';row.firstChild.onclick=()=>{i++;tries=0;load()};return}
     if(z.goal=='mate'&&left>0&&!r.pos.over){info.innerHTML=`You played ${r.san}, the defence replied <b>${r.reply.san}</b>. Keep going – mate in ${left}.`;return}
     tries++;msg.className='msg no';msg.textContent=`Not it (${r.san}). Best was ${r.grade.best_san}.`;
-    info.textContent='';row.innerHTML='<button class="pri">Retry</button><button>Next</button>';
+    info.innerHTML=whyHtml(r.grade);row.innerHTML='<button class="pri">Retry</button><button>Next</button>';
     row.children[0].onclick=()=>{msg.className='msg';load()};row.children[1].onclick=()=>{i++;tries=0;load()};
   }
   load();
@@ -430,7 +436,7 @@ RUN.play=(el,d,onPass)=>{
     if(r.grade&&r.grade.verdict=='blunder')blunders++;
     last=r.reply?{[r.reply.uci.slice(0,2)]:'hB',[r.reply.uci.slice(2,4)]:'hB'}:{[uci.slice(0,2)]:'hC',[uci.slice(2,4)]:'hA'};
     P=r.pos;paint();
-    coach.innerHTML=`You: <b>${r.san}</b> ${coachText(r.grade)}`+(r.reply?` &nbsp;|&nbsp; Bot: <b>${r.reply.san}</b>`:'');
+    coach.innerHTML=`You: <b>${r.san}</b> ${coachText(r.grade&&{...r.grade,why:[]})}`+(r.reply?` &nbsp;|&nbsp; Bot: <b>${r.reply.san}</b>`:'')+whyHtml(r.grade);
     const p=r.pos;
     if(d.goal=='promote'&&r.san.includes('='))return finish(true,'Queen! Passed.');
     if(p.mate)return finish(p.turn=='b','Checkmate! '+(p.turn=='b'?'You win – passed!':'The bot won. Restart and try again.'));
