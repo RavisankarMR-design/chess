@@ -97,9 +97,18 @@ const FIGS={
   smother:['6rk/5Npp/8/8/8/8/8/6K1',{f7:'hA',h8:'hB'},'Smothered mate: the king is surrounded by its own pieces and the knight checks.'],
   ladder:['6k1/8/8/8/8/8/R7/1R2K3',{a2:'hC',b1:'hC'},'Ladder (lawnmower) mate: one rook cuts off a rank, the other checks on the next one. Here Ra7/Rb7 then mate on the 8th rank.'],
   endg:['4k3/8/4K3/4P3/8/8/8/8',{e6:'hA',e5:'hC',e8:'hB'},'King in front of its pawn on the 6th rank wins: e.g. Kd6 Kd8 e6 Ke8 e7 Kf7 Kd7.'],
+  greek:['rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R',{d3:'hC',h7:'hB',f3:'hA',d1:'hA'},'Greek gift: Bxh7+! Kxh7 Ng5+ and Qh5 \u2013 the engine rates Bxh7+ as winning for White here (about +4.5).'],
+  iqp:['r1bq1rk1/pp2bppp/2n1pn2/8/3P4/2NB1N2/PP3PPP/R1BQ1RK1',{d4:'hC',e5:'hA',d5:'hB'},'White has an isolated d4-pawn: active pieces and the e5 outpost now, a possible weakness later. Black wants to blockade on d5.'],
+  outpost:['r2q1rk1/1p1nbppp/p2pbn2/3Np3/4P3/1N2BP2/PPP1B1PP/R2Q1RK1',{d5:'hA'},'The knight on d5 sits on an outpost: Black has no c-pawn and the e-pawn has passed, so no pawn can ever attack it.'],
+  bishop:['8/2k5/1p1p4/pPpPp3/P1P1P3/2K1B3/8/7b',{e3:'hA',h1:'hB'},'All Black pawns stand on dark squares, like Black\u2019s bishop on h1: a \u201cbad\u201d bishop with nothing to attack. White\u2019s bishop can target those pawns.'],
+  square:['k7/8/8/8/7p/8/3K4/8',{h4:'hB',d2:'hA',e3:'hC'},'White to move: Ke3! steps into the square of the h-pawn (e4\u2013h4\u2013h1\u2013e1) and catches it.'],
+  square_bad:['k7/8/8/8/7p/8/2K5/8',{h4:'hB',c2:'hA'},'One file further away: the king cannot reach the square in time, and the pawn queens.'],
+  keysq:['8/8/2k5/8/2K5/8/2P5/8',{b4:'hC',c4:'hA',d4:'hC'},'Key squares of the c2-pawn: b4, c4, d4. White\u2019s king already stands on one, so White wins whoever is to move.'],
+  passed:['8/5k2/8/1P6/8/8/5K2/8',{b5:'hA',f7:'hB'},'A passed pawn far from the enemy king: Black\u2019s king is outside the square and cannot catch it.'],
   oppo:['8/8/4k3/8/4K3/4P3/8/8',{e4:'hA',e6:'hB'},'Opposition: kings face each other with one square between. The side NOT to move has the opposition – the other king must give way.']
 };
 function renderFigs(root){
+  root.querySelectorAll('[data-game]').forEach(h=>viewer(h,h.dataset.game,h.dataset.flip=='1'));
   root.querySelectorAll('[data-fig]').forEach(h=>{
     const [fen,hl,cap]=FIGS[h.dataset.fig];h.innerHTML='';
     const b=document.createElement('div');h.appendChild(b);draw(b,fen,{hl});
@@ -141,25 +150,27 @@ function explorer(host){
 
 /* ================= curriculum ================= */
 const STAGES=[
+/* ---------------- BEGINNER ---------------- */
 {t:'The board and the pieces',lvl:'Beginner',html:`
-<p><b>Goal of chess:</b> checkmate the enemy king &ndash; attack it so it cannot escape. White moves first, then players alternate. You must move every turn.</p>
+<p><b>Goal of chess:</b> checkmate the enemy king &ndash; attack it so it cannot escape. White moves first, then players alternate. You must move every turn; you cannot pass.</p>
 <div data-fig="start"></div>
 <ul><li>Each side: 1 king, 1 queen, 2 rooks, 2 bishops, 2 knights, 8 pawns.</li>
-<li>Columns are <b>files</b> a&ndash;h, rows are <b>ranks</b> 1&ndash;8. Every square has a name, like <code>e4</code>.</li>
-<li>You capture by moving onto an enemy piece. You can never capture your own.</li></ul>
+<li>Columns are <b>files</b> a&ndash;h, rows are <b>ranks</b> 1&ndash;8. Every square has a name, like <code>e4</code>. White starts on ranks 1&ndash;2, Black on 7&ndash;8.</li>
+<li>Diagonals run corner to corner; the long diagonals a1&ndash;h8 and h1&ndash;a8 are the most important.</li>
+<li>You capture by moving onto an enemy piece (pawns capture differently). You can never capture your own pieces, and pieces (except the knight) cannot jump over others.</li></ul>
 <h3>How each piece moves</h3><div id="explorer"></div>
 <h3>Piece values</h3>
 <table><tr><th>Pawn</th><th>Knight</th><th>Bishop</th><th>Rook</th><th>Queen</th><th>King</th></tr><tr><td>1</td><td>3</td><td>3</td><td>5</td><td>9</td><td>&infin;</td></tr></table>
-<div class="tip">Use values to judge trades: a rook (5) for a knight (3) loses 2 points. Never give pieces away for nothing.</div>`,
+<div class="tip">Use values to judge trades: a rook (5) for a knight (3) loses 2 points (&ldquo;losing the exchange&rdquo;). Two minor pieces (6) are usually better than a rook and a pawn (6) in the middlegame because they cooperate.</div>`,
 drills:[{id:'targets',t:'Where can it go?',d:'A piece appears on an empty board. Tap every square it can move to, then press Check. Get 5 right to pass.',type:'targets',need:5}]},
 
 {t:'Rules: special moves, check and mate',lvl:'Beginner',html:`
-<h3>Castling</h3><p>King moves <b>two squares</b> toward a rook; the rook jumps over to the other side. Only if neither piece has moved, nothing is between them, you are not in check, and the king does not pass through an attacked square. Castle early &ndash; it hides your king and activates your rook.</p><div data-fig="castle"></div>
-<h3>En passant</h3><p>If an enemy pawn moves two squares and lands right beside your pawn, you may capture it as if it moved one square &ndash; only on the very next move.</p><div data-fig="ep"></div>
-<h3>Promotion</h3><p>A pawn reaching the last rank becomes a queen, rook, bishop or knight (almost always a queen).</p><div data-fig="promo"></div>
-<h3>Check</h3><p>The king is attacked. You must escape immediately: <b>move the king</b>, <b>block</b>, or <b>capture</b> the attacker. Knight checks cannot be blocked.</p><div data-fig="check"></div>
-<h3>Checkmate</h3><p>Check with no escape &ndash; the game is over.</p><div data-fig="mate"></div>
-<h3>Draws</h3><ul><li><b>Stalemate</b>: the side to move has no legal move and is <i>not</i> in check.</li><li>Threefold repetition, the 50-move rule, insufficient material (e.g. king vs king), or agreement.</li></ul><div data-fig="stale"></div>`,
+<h3>Castling</h3><p>The king moves <b>two squares</b> toward a rook and the rook jumps to the square the king crossed. Allowed only if: neither piece has moved yet, nothing stands between them, you are <b>not in check</b>, and the king does not pass through or land on an attacked square. Castle early &ndash; it hides your king and activates your rook.</p><div data-fig="castle"></div>
+<h3>En passant</h3><p>If an enemy pawn moves two squares from its start and lands right beside your pawn, you may capture it as if it had moved one square &ndash; only on the very next move.</p><div data-fig="ep"></div>
+<h3>Promotion</h3><p>A pawn reaching the last rank becomes a queen, rook, bishop or knight of your choice (you can have two queens). Almost always choose a queen.</p><div data-fig="promo"></div>
+<h3>Check</h3><p>The king is attacked. You must escape immediately in one of three ways: <b>move the king</b>, <b>block</b> the line, or <b>capture</b> the attacker. A knight's check cannot be blocked. You may never make a move that leaves your own king in check.</p><div data-fig="check"></div>
+<h3>Checkmate</h3><p>Check with no legal escape &ndash; the game is over.</p><div data-fig="mate"></div>
+<h3>Draws</h3><ul><li><b>Stalemate</b>: the side to move has no legal move and is <i>not</i> in check.</li><li><b>Threefold repetition</b> of the same position.</li><li><b>50-move rule</b>: 50 moves each without a capture or pawn move.</li><li><b>Insufficient material</b>: e.g. king vs king, king + bishop vs king, king + knight vs king.</li><li><b>Agreement</b> between the players.</li></ul><div data-fig="stale"></div>`,
 drills:[{id:'classify',t:'Check, mate or stalemate?',d:'Look at each position (side to move is shown) and pick the right answer. 8 of 10 to pass.',type:'classify',need:8,
  fens:['4k3/8/8/8/8/8/8/4R1K1 b - - 0 1','R5k1/5ppp/8/8/8/8/8/6K1 b - - 0 1','7k/5Q2/6K1/8/8/8/8/8 b - - 0 1','rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1','4k3/8/3N4/8/8/8/8/4K3 b - - 0 1','rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3','k7/2Q5/1K6/8/8/8/8/8 b - - 0 1','r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3','6rk/5Npp/8/8/8/8/8/6K1 b - - 0 1','4k3/8/8/1B6/8/8/8/4K3 b - - 0 1']}]},
 
@@ -167,105 +178,197 @@ drills:[{id:'classify',t:'Check, mate or stalemate?',d:'Look at each position (s
 <table><tr><th>Symbol</th><th>Meaning</th></tr>
 <tr><td><code>e4</code></td><td>Pawn moves to e4 (pawns have no letter)</td></tr>
 <tr><td><code>N B R Q K</code></td><td>Knight, Bishop, Rook, Queen, King &ndash; <code>Nf3</code> = knight to f3</td></tr>
-<tr><td><code>x</code></td><td>Capture: <code>Bxc6</code>; pawn captures use the file: <code>exd5</code></td></tr>
+<tr><td><code>x</code></td><td>Capture: <code>Bxc6</code>; pawn captures name the file: <code>exd5</code></td></tr>
 <tr><td><code>+</code> / <code>#</code></td><td>Check / checkmate</td></tr>
 <tr><td><code>O-O</code> / <code>O-O-O</code></td><td>Castle kingside / queenside</td></tr>
 <tr><td><code>e8=Q</code></td><td>Promotion to a queen</td></tr>
-<tr><td><code>Nbd2</code></td><td>Which knight: the one from the b-file</td></tr></table>
-<h3>The three phases</h3><ol><li><b>Opening</b> (first ~10&ndash;15 moves): develop pieces, fight for the centre, castle.</li><li><b>Middlegame</b>: plans, attacks, tactics.</li><li><b>Endgame</b>: few pieces left; kings become active, pawns race to promote.</li></ol>`,
+<tr><td><code>Nbd2</code>, <code>R1e2</code></td><td>Which piece, when two can go to the same square (by file or rank)</td></tr>
+<tr><td><code>!</code> <code>?</code> <code>!!</code> <code>??</code></td><td>Good move, mistake, brilliant, blunder</td></tr></table>
+<p>A game is written in move pairs: <code>1. e4 e5 2. Nf3 Nc6</code>. &ldquo;1...Nc6&rdquo; with three dots means a Black move.</p>
+<h3>The three phases</h3><ol><li><b>Opening</b> (first ~10&ndash;15 moves): develop pieces, fight for the centre, castle.</li><li><b>Middlegame</b>: plans, attacks, tactics. Most games are decided here.</li><li><b>Endgame</b>: few pieces left; kings become active, pawns race to promote.</li></ol>`,
 drills:[{id:'notation',t:'Name that move',d:'A move is highlighted (yellow = from, green = to). Pick its correct notation. 5 of 6 to pass.',type:'notation',need:5,rounds:6,
  fens:['rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1','r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4','r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/2NP1N2/PPP2PPP/R1BQK2R w KQkq - 1 6','rnbqkb1r/ppp2ppp/4pn2/3p4/2PP4/2N5/PP2PPPP/R1BQKBNR w KQkq - 2 4','r2qkb1r/pp1n1ppp/2p1pn2/3p1b2/2PP4/2N1PN2/PP3PPP/R1BQKB1R w KQkq - 0 7']}]},
 
-{t:'Opening: starting the game right',lvl:'Novice',html:`
-<ol><li><b>Control the centre</b> (e4, d4, e5, d5) with pawns and pieces.</li>
-<li><b>Develop</b> knights and bishops early &ndash; each move brings a new piece out.</li>
-<li><b>Castle</b> within the first ~10 moves.</li>
-<li><b>Don’t move the same piece twice</b> without a reason.</li>
-<li><b>Keep the queen home</b> until the minor pieces are out.</li>
-<li><b>Connect your rooks</b> (nothing between them on the back rank).</li></ol>
-<div data-fig="open"></div>
-<h3>Openings worth knowing (names only for now)</h3>
-<ul><li><b>Italian Game</b> 1.e4 e5 2.Nf3 Nc6 3.Bc4 &ndash; simple and classical.</li>
-<li><b>Ruy Lopez</b> 1.e4 e5 2.Nf3 Nc6 3.Bb5 &ndash; deeper strategic pressure.</li>
-<li><b>Sicilian</b> 1.e4 c5 &ndash; Black’s fighting reply.</li>
-<li><b>Queen’s Gambit</b> 1.d4 d5 2.c4 &ndash; solid central play.</li>
-<li><b>London System</b> 1.d4, Bf4, e3, Nf3 &ndash; same setup against almost anything.</li></ul>
-<div class="warn"><b>Scholar’s mate:</b> 1.e4 e5 2.Qh5 Nc6 3.Bc4 Nf6?? 4.Qxf7#. Always defend f7 (f2 as White).</div>`,
-drills:[{id:'opening',t:'Opening coach',d:'Play the first 12 moves as White against an easy bot. Pass if you castle, develop at least 3 minor pieces and make no blunder. The coach rates every move.',type:'play',level:1,goal:'opening',max:12}]},
+{t:'Basic checkmates',lvl:'Beginner',html:`
+<p>Before anything else, you must be able to <b>finish a won game</b>. These mates appear again and again.</p>
+<h3>Two rooks: the ladder</h3><p>One rook cuts the king off along a rank, the other checks on the next rank; swap roles and walk the king to the edge. Keep the rooks far from the enemy king so it cannot attack them.</p><div data-fig="ladder"></div>
+<h3>King + queen vs king</h3><ol><li>Place the queen a <b>knight's jump</b> away from the enemy king &ndash; this shrinks its box.</li><li>Keep mirroring the king with the queen until it is on the edge.</li><li><b>Stop</b> and bring your own king up (the queen alone can't mate).</li><li>Mate on the edge with the queen protected by the king. <b>Every move, check it is not stalemate!</b></li></ol>
+<h3>King + rook vs king</h3><ol><li>Use the rook to cut the king off (a &ldquo;box&rdquo;).</li><li>Bring your king close, facing the enemy king (opposition).</li><li>When the kings face each other, give a rook check: the king must retreat one rank.</li><li>Repeat until it reaches the edge, then mate. Make a waiting rook move when you need to pass the move.</li></ol>
+<h3>Back-rank mate</h3><div data-fig="mate"></div>`,
+drills:[
+ {id:'rr',t:'Mate with two rooks',d:'Checkmate within 12 moves using the ladder technique.',type:'play',level:4,goal:'mate',max:12,fen:'8/8/8/4k3/8/8/8/R3K2R w - - 0 1'},
+ {id:'kq',t:'Mate with king + queen',d:'Checkmate the lone king within 20 moves. Avoid stalemate!',type:'play',level:4,goal:'mate',max:20,fen:'8/8/8/4k3/8/8/8/3QK3 w - - 0 1'},
+ {id:'kr',t:'Mate with king + rook',d:'Checkmate within 35 moves using king and rook.',type:'play',level:4,goal:'mate',max:35,fen:'8/8/8/4k3/8/8/8/R3K3 w - - 0 1'}]},
 
+{t:'Your first games: traps and a model game',lvl:'Beginner',html:`
+<p>Step through these games with the arrows. Read the comment on each move &ndash; they show the most common beginner mistakes and the ideas that punish them.</p>
+<h3>Fool's mate</h3><div data-game="fools"></div>
+<h3>Scholar's mate</h3><div data-game="scholars"></div>
+<h3>Legal's mate</h3><div data-game="legal"></div>
+<h3>A model game: Morphy's Opera Game</h3><p>Played in 1858 at the opera in Paris. Watch how White <b>develops every piece</b> while Black wastes time &ndash; then opens lines against the uncastled king.</p><div data-game="opera"></div>
+<div class="tip">Lessons: develop before attacking, don't grab material while behind in development, castle early, and look for checks and captures.</div>`,
+drills:[
+ {id:'opera_line',t:'Play like Morphy',d:'Replay the Opera Game as White: find Morphy’s moves. Wrong moves are shown and you try again. Pass with at most 4 mistakes.',type:'line',game:'opera',side:'w',allow:4},
+ {id:'beat0',t:'Beat the beginner bot',d:'Win a full game as White against the weakest bot. The coach comments on each move.',type:'play',level:0,goal:'win',max:120}]},
+
+/* ---------------- NOVICE ---------------- */
+{t:'Opening principles',lvl:'Novice',html:`
+<ol><li><b>Control the centre</b> (e4, d4, e5, d5) with pawns and pieces.</li>
+<li><b>Develop</b> knights and bishops early, knights usually before bishops &ndash; each move brings a new piece out.</li>
+<li><b>Castle</b> within the first ~10 moves.</li>
+<li><b>Don’t move the same piece twice</b> without a reason, and don't make too many pawn moves.</li>
+<li><b>Keep the queen home</b> until the minor pieces are out.</li>
+<li><b>Connect your rooks</b> (nothing between them on the back rank), then put them on open files.</li>
+<li><b>Don't grab pawns</b> if it costs you development &ndash; time is a resource.</li></ol>
+<div data-fig="open"></div>
+<h3>Why it works</h3><p>Pieces in the centre control more squares. A developed army can attack and defend faster. An uncastled king in an open centre is the most common reason beginners lose quickly &ndash; you saw it in the Opera Game.</p>
+<div class="warn">Every opening move should do at least one job: develop, control the centre, or make the king safe.</div>`,
+drills:[{id:'opening',t:'Opening coach',d:'Play the first 12 moves as White against an easy bot. Pass if you castle, develop at least 3 minor pieces and make no blunder.',type:'play',level:1,goal:'opening',max:12}]},
+
+{t:'White repertoire: the Italian Game',lvl:'Novice',html:`
+<p>One opening, understood well, is worth more than ten memorised. The <b>Italian Game</b> (1.e4 e5 2.Nf3 Nc6 3.Bc4) follows every principle and leads to positions with clear plans.</p>
+<h3>Main plan: Giuoco Pianissimo</h3><p>White builds slowly: c3 and d3, castles, Re1, Bb3, h3, then the famous knight route <b>Nbd2–f1–g3</b>. Later d3–d4 or a kingside attack with Nf5/Nh5.</p><div data-game="italian"></div>
+<h3>If Black plays 3...Nf6: the Two Knights</h3><p>4.Ng5 attacks f7 twice. If Black replies 5...Nxd5? the <b>Fried Liver</b> sacrifice Nxf7! drags the king out. The correct defence is 5...Na5.</p><div data-game="twoknights"></div>
+<div class="tip">Against other Black replies (1...c5, 1...e6, 1...c6) just follow the principles: Nf3, d4, Nc3, Bc4/Bd3, castle.</div>`,
+drills:[
+ {id:'italian_line',t:'Play the Italian from memory',d:'Play White’s moves of the Giuoco Pianissimo. Wrong moves are corrected. Pass with at most 1 mistake.',type:'line',game:'italian',side:'w',allow:1},
+ {id:'fried_line',t:'Play the Fried Liver attack',d:'Play White’s moves of the Two Knights / Fried Liver line. Pass with at most 1 mistake.',type:'line',game:'twoknights',side:'w',allow:1}]},
+
+{t:'Black repertoire: answers to 1.e4 and 1.d4',lvl:'Novice',html:`
+<h3>Against 1.e4: play 1...e5</h3><p>Symmetrical and principled. Against the Italian, mirror White's ideas (...Bc5, ...Nf6, ...d6, castle). Against the <b>Ruy Lopez</b> (3.Bb5) use the Morphy Defence 3...a6 and the closed system below: ...b5, ...d6, castle, then ...Na5 and ...c5 to gain space on the queenside.</p><div data-game="ruy" data-flip="1"></div>
+<h3>Against 1.d4: the Queen's Gambit Declined</h3><p>1...d5 and 2...e6. Black holds the centre, develops calmly and frees the position with Capablanca's ...dxc4 and ...Nd5 to trade pieces.</p><div data-game="qgd" data-flip="1"></div>
+<h3>Bonus for White: the London System</h3><p>If you prefer 1.d4: d4, Bf4, e3, Nf3, c3, Nbd2, Bd3, castle. The same setup against almost anything.</p><div data-game="london"></div>`,
+drills:[
+ {id:'ruy_line',t:'Defend the Ruy Lopez as Black',d:'Play Black’s moves of the Closed Ruy Lopez. Pass with at most 1 mistake.',type:'line',game:'ruy',side:'b',allow:1},
+ {id:'qgd_line',t:'Play the Queen’s Gambit Declined as Black',d:'Play Black’s moves of the QGD. Pass with at most 1 mistake.',type:'line',game:'qgd',side:'b',allow:1}]},
+
+/* ---------------- INTERMEDIATE ---------------- */
 {t:'Tactics I: forks, pins, skewers',lvl:'Intermediate',html:`
 <p>Most games below master level are decided by <b>tactics</b>: short forcing sequences that win material or mate.</p>
-<h3>Fork</h3><p>One piece attacks two targets at once.</p><div data-fig="fork"></div>
-<h3>Pin</h3><p>A piece can’t move because it shields something more valuable.</p><div data-fig="pin"></div>
-<h3>Skewer</h3><p>Attack the valuable piece first; when it moves, take what’s behind.</p><div data-fig="skewer"></div>
-<h3>Discovered attack</h3><p>Move one piece to unleash an attack from the piece behind it.</p><div data-fig="disc"></div>
+<h3>Fork</h3><p>One piece attacks two targets at once. Knights, queens and pawns are great forkers. Look for undefended pieces and the enemy king on squares a knight's jump apart.</p><div data-fig="fork"></div>
+<h3>Pin</h3><p>A piece can't move because it shields something more valuable. <b>Absolute pin</b> (to the king): moving is illegal. <b>Relative pin</b> (to the queen): moving loses material. Attack the pinned piece again &ndash; it can't run.</p><div data-fig="pin"></div>
+<h3>Skewer</h3><p>The reverse of a pin: attack the valuable piece first; when it moves, take what's behind.</p><div data-fig="skewer"></div>
 <div class="tip"><b>CCT before every move:</b> look at all <b>C</b>hecks, <b>C</b>aptures and <b>T</b>hreats &ndash; for you and for your opponent.</div>`,
-drills:[{id:'tactics1',t:'Tactics puzzles',d:'White to move. Find the winning move (mate or win material). The engine checks your answer. Solve 7 of 9 on the first try.',type:'puzzles',need:7,list:[
+drills:[
+ {id:'tactics1',t:'Tactics puzzles',d:'White to move. Find the winning move (mate or win material). The engine checks your answer. Solve 7 of 9 on the first try.',type:'puzzles',need:7,list:[
  {fen:'6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1',goal:'mate',n:1},{fen:'r3k3/pp4pp/8/3N4/8/8/PP4PP/6K1 w - - 0 1',goal:'win'},
  {fen:'6k1/5ppp/8/8/8/8/5PPP/3Q2K1 w - - 0 1',goal:'mate',n:1},{fen:'2q3k1/5ppp/8/3N4/8/8/5PPP/6K1 w - - 0 1',goal:'win'},
  {fen:'4k3/8/2n5/1B6/3P4/8/8/4K3 w - - 0 1',goal:'win'},{fen:'k7/8/1K6/8/8/8/7Q/8 w - - 0 1',goal:'mate',n:1},
  {fen:'8/1q4pp/8/3k4/8/8/PP6/5BK1 w - - 0 1',goal:'win'},{fen:'q3k3/5ppp/8/8/4B3/8/5PPP/4R1K1 w - - 0 1',goal:'win'},
- {fen:'7k/R7/8/8/8/8/8/1R2K3 w - - 0 1',goal:'mate',n:1}]}]},
+ {fen:'7k/R7/8/8/8/8/8/1R2K3 w - - 0 1',goal:'mate',n:1}]},
+ {id:'pz_fork',t:'Real puzzles: forks',d:'10 real fork puzzles (rating 600–1400). Solve 7.',type:'pzset',theme:'fork',min:600,max:1400,count:10,need:7},
+ {id:'pz_pin',t:'Real puzzles: pins',d:'10 real pin puzzles (rating 600–1500). Solve 7.',type:'pzset',theme:'pin',min:600,max:1500,count:10,need:7}]},
 
-{t:'Tactics II: mating patterns, mate in 2',lvl:'Intermediate',html:`
+{t:'Tactics II: discovered attacks, deflection, defenders',lvl:'Intermediate',html:`
+<h3>Discovered attack and double check</h3><p>Move one piece out of the way to unleash the piece behind it. If the moving piece also attacks something (or gives check), the opponent faces two threats at once. A <b>double check</b> can only be answered by moving the king.</p><div data-fig="disc"></div>
+<h3>Deflection</h3><p>Force a defender away from its duty, often with a sacrifice or a check. Example: the queen guards the back rank &ndash; attack the queen with tempo and the rank falls.</p>
+<h3>Attraction (decoy)</h3><p>Sacrifice to drag a piece (often the king) onto a bad square, where a fork or mate follows. The Fried Liver Nxf7 is a decoy.</p>
+<h3>Removing the defender &amp; overloading</h3><p>If one piece defends two things, it is <b>overloaded</b>: capture one, and it can't hold the other. Or simply capture/chase the defender.</p>
+<h3>Intermezzo (in-between move)</h3><p>Before making the expected recapture, insert a check or bigger threat first.</p>
+<h3>Counting exchanges</h3><p>On a square, count attackers and defenders. If you have more attackers and the trades are equal or favourable in value, you win material. Always start capturing with your <b>least valuable</b> piece.</p>`,
+drills:[
+ {id:'pz_disc',t:'Real puzzles: discovered attacks',d:'10 puzzles (rating 800–1600). Solve 6.',type:'pzset',theme:'discoveredAttack',min:800,max:1600,count:10,need:6},
+ {id:'pz_defl',t:'Real puzzles: deflection',d:'10 puzzles (rating 900–1700). Solve 6.',type:'pzset',theme:'deflection',min:900,max:1700,count:10,need:6}]},
+
+{t:'Mating patterns and mate in 2',lvl:'Intermediate',html:`
 <p>Strong players recognise <b>patterns</b> instantly. Learn these and look for them every game.</p>
-<h3>Back-rank mate</h3><div data-fig="mate"></div>
+<h3>Back-rank mate</h3><div data-fig="mate"></div><p>Defence: make a <i>luft</i> (escape square) with h3/h6 when you have time.</p>
 <h3>Ladder mate</h3><div data-fig="ladder"></div>
-<h3>Smothered mate</h3><div data-fig="smother"></div>
-<h3>Deflection / sacrifice</h3><p>Sometimes you <b>give up material</b> to drag a defender away, then mate. Example idea: Qe8+! Rxe8, Rxe8#.</p>
-<h3>How to calculate 2 moves deep</h3><ol><li>List forcing moves first: checks, captures, threats.</li><li>For each, find the opponent’s <b>best</b> reply (not the one you hope for).</li><li>Check if your follow-up still works.</li></ol>`,
-drills:[{id:'mate2',t:'Mate in 2',d:'White to move and mate in 2. The engine defends perfectly. Solve 3 of 4.',type:'puzzles',need:3,list:[
+<h3>Smothered mate</h3><div data-fig="smother"></div><p>Often prepared with a queen sacrifice on g8/g1 that forces the rook to block the king's last square.</p>
+<h3>Other patterns</h3><ul><li><b>Anastasia's mate</b>: knight on e7 + rook on the h-file.</li><li><b>Arabian mate</b>: rook and knight in the corner.</li><li><b>Boden's mate</b>: two bishops on crossing diagonals.</li><li><b>Damiano's / Greco's mate</b>: queen supported by a bishop or pawn next to the king.</li></ul>
+<h3>Calculating 2 moves deep</h3><ol><li>List forcing moves: checks, captures, threats.</li><li>For each, find the opponent's <b>best</b> reply (not the one you hope for).</li><li>Check your follow-up still works against every reply.</li></ol>`,
+drills:[
+ {id:'mate2',t:'Mate in 2',d:'White to move and mate in 2. The engine defends perfectly. Solve 3 of 4.',type:'puzzles',need:3,list:[
  {fen:'7k/8/8/8/8/8/1R6/R3K3 w - - 0 1',goal:'mate',n:2},{fen:'r5k1/5ppp/8/8/8/8/4RPPP/4R1K1 w - - 0 1',goal:'mate',n:2},
- {fen:'6k1/8/8/8/8/8/R7/1R2K3 w - - 0 1',goal:'mate',n:2},{fen:'1r4k1/5ppp/8/8/8/8/4QPPP/4R1K1 w - - 0 1',goal:'mate',n:2}]}]},
+ {fen:'6k1/8/8/8/8/8/R7/1R2K3 w - - 0 1',goal:'mate',n:2},{fen:'1r4k1/5ppp/8/8/8/8/4QPPP/4R1K1 w - - 0 1',goal:'mate',n:2}]},
+ {id:'pz_m2',t:'Real puzzles: mate in 2',d:'10 real mate-in-2 puzzles (rating 700–1600). Solve 7.',type:'pzset',theme:'mateIn2',min:700,max:1600,count:10,need:7},
+ {id:'pz_br',t:'Real puzzles: back-rank mates',d:'8 puzzles (rating 600–1600). Solve 6.',type:'pzset',theme:'backRankMate',min:600,max:1600,count:8,need:6}]},
 
-{t:'Strategy: the plan behind the moves',lvl:'Intermediate',html:`
-<ul><li><b>Material</b>: one extra piece usually wins. Trade pieces when ahead; avoid trades when behind.</li>
+{t:'Defence: stop losing pieces',lvl:'Intermediate',html:`
+<p>Winning games is often simply <b>not losing material</b>. Strong players are excellent defenders.</p>
+<h3>The blunder check (every single move)</h3><ol><li>What did the opponent's last move <b>change</b>? What does the moved piece attack now? What did it stop defending?</li><li>Before you move: which of my pieces are <b>undefended</b>? Which are attacked more times than defended?</li><li>After my intended move: what are all the opponent's <b>checks and captures</b>?</li></ol>
+<h3>Five ways to meet a threat</h3><ol><li><b>Move</b> the attacked piece (to a safe, useful square).</li><li><b>Protect</b> it.</li><li><b>Block</b> the line of attack.</li><li><b>Capture</b> the attacker or <b>trade</b> it off.</li><li><b>Counter-attack</b> with a bigger threat (check, or attacking their queen).</li></ol>
+<h3>Loose pieces drop off</h3><p>&ldquo;LPDO&rdquo;: undefended pieces are the targets of almost every tactic. Keep your pieces protected, especially in the opening and middlegame.</p>
+<div class="tip">When defending a bad position: stay calm, trade attackers, give back material to kill the attack, and set problems for your opponent.</div>`,
+drills:[
+ {id:'pz_hang',t:'Real puzzles: hanging pieces',d:'10 puzzles: spot what’s loose (rating 500–1300). Solve 7.',type:'pzset',theme:'hangingPiece',min:500,max:1300,count:10,need:7},
+ {id:'pz_def',t:'Real puzzles: defensive moves',d:'10 puzzles where the only good move defends (rating 900–1700). Solve 6.',type:'pzset',theme:'defensiveMove',min:900,max:1700,count:10,need:6}]},
+
+{t:'Strategy I: plans, pawns and pieces',lvl:'Intermediate',html:`
+<p>When there are no tactics, play by <b>strategy</b>: improve your position step by step.</p>
+<ul><li><b>Material</b>: an extra piece usually wins. Trade pieces when ahead, avoid trades when behind.</li>
 <li><b>King safety</b>: castle, keep the pawn shield, don’t open lines near your own king.</li>
-<li><b>Piece activity</b>: knights central (outposts), bishops on open diagonals, rooks on open files and the 7th rank.</li>
-<li><b>Pawn structure</b>: avoid doubled and isolated pawns; create a <b>passed pawn</b>.</li>
-<li><b>Space &amp; centre</b>: central pieces reach both wings fast.</li>
-<li><b>Weak squares</b>: holes the enemy pawns can no longer guard are homes for your pieces.</li>
-<li><b>Worst piece rule</b>: no plan? Improve your worst-placed piece.</li></ul>
-<div class="tip">When up material: <b>simplify</b> (trade), stay safe, push the passed pawn. When down: create complications and keep pieces on.</div>`,
-drills:[
- {id:'beat0',t:'Beat the beginner bot',d:'Win a full game as White against the weakest bot. The coach comments on each move.',type:'play',level:0,goal:'win',max:120},
- {id:'beat1',t:'Beat the easy bot',d:'Win a full game as White against the easy bot.',type:'play',level:1,goal:'win',max:150}]},
+<li><b>Piece activity</b>: knights central, bishops on open diagonals, rooks on open files and the 7th rank.</li>
+<li><b>Space &amp; centre</b>: central pieces reach both wings fast.</li></ul>
+<h3>Pawn structure</h3><ul><li><b>Doubled pawns</b> (two on one file) and <b>isolated pawns</b> (no friendly pawn on neighbouring files) are weaknesses &ndash; they need pieces to defend them.</li>
+<li><b>Passed pawn</b>: no enemy pawn can stop it. &ldquo;Passed pawns must be pushed.&rdquo;</li>
+<li><b>Pawn chains</b> (e.g. d4–e5): attack the base of the enemy chain.</li>
+<li><b>Isolated queen's pawn (IQP)</b>: gives activity and an outpost on e5/c5, but becomes weak in the endgame. With an IQP, attack; against it, blockade and trade pieces.</li></ul><div data-fig="iqp"></div>
+<h3>Outposts</h3><p>A square that enemy pawns can no longer attack is a perfect home for a knight.</p><div data-fig="outpost"></div>
+<h3>Good and bad bishops</h3><p>A bishop blocked by its own pawns (on its colour) is &ldquo;bad&rdquo;. Put your pawns on the opposite colour of your bishop.</p><div data-fig="bishop"></div>
+<div class="tip">No plan? Find your <b>worst-placed piece</b> and improve it. Then find the opponent's <b>weakest point</b> and attack it with more pieces than they can defend with.</div>`,
+drills:[{id:'beat1',t:'Beat the easy bot',d:'Win a full game as White against the easy bot. Use the plans from this chapter.',type:'play',level:1,goal:'win',max:150}]},
 
-{t:'Endgames: finishing the game',lvl:'Advanced',html:`
-<ul><li><b>Activate the king</b> once queens are off &ndash; it becomes a strong piece.</li>
-<li><b>Push passed pawns</b>, escorted by the king.</li>
-<li><b>Rooks behind passed pawns</b> (yours or the enemy’s).</li></ul>
+/* ---------------- ADVANCED ---------------- */
+{t:'Strategy II: attacking the king',lvl:'Advanced',html:`
+<h3>When to attack</h3><ul><li>You have <b>more pieces</b> near the enemy king than they have defenders.</li><li>The enemy king's pawn shield is weakened (h6, g6, f6 pushed).</li><li>The centre is <b>closed or stable</b> &ndash; otherwise a counter-strike in the centre punishes a wing attack.</li><li><b>Opposite-side castling</b>: both sides storm with pawns; speed is everything.</li></ul>
+<h3>Methods</h3><ul><li><b>Pawn storm</b>: push g- and h-pawns to open files toward the king.</li><li><b>Rook lift</b>: Re1–e3–g3/h3.</li><li><b>Remove the defender</b>: trade or deflect the f6-knight.</li><li><b>Sacrifices</b>: open the king with Bxh7+, Nxf7, Rxg7&hellip;</li></ul>
+<h3>The Greek gift: Bxh7+</h3><p>Conditions: bishop on d3, knight can reach g5, queen can reach h5, and no black knight on f6 / no defender of h7. After Bxh7+ Kxh7 Ng5+ the queen joins on h5 with a mating attack.</p><div data-fig="greek"></div>`,
+drills:[
+ {id:'pz_ks',t:'Real puzzles: kingside attack',d:'10 puzzles (rating 1000–1800). Solve 6.',type:'pzset',theme:'kingsideAttack',min:1000,max:1800,count:10,need:6},
+ {id:'pz_sac',t:'Real puzzles: sacrifices',d:'10 puzzles (rating 1100–1900). Solve 6.',type:'pzset',theme:'sacrifice',min:1100,max:1900,count:10,need:6}]},
+
+{t:'Endgames I: kings and pawns',lvl:'Advanced',html:`
+<ul><li><b>Activate the king</b> as soon as queens are off &ndash; it becomes a strong piece.</li><li><b>Push passed pawns</b>, escorted by the king.</li></ul>
+<h3>The rule of the square</h3><p>Draw a square from the pawn to its promotion rank. If the defending king can step inside it (on its move), it catches the pawn.</p><div data-fig="square"></div><div data-fig="square_bad"></div>
 <h3>Opposition</h3><div data-fig="oppo"></div>
-<h3>King + pawn</h3><div data-fig="endg"></div>
-<h3>Basic mates</h3><ol><li><b>K+Q vs K</b>: push the king to the edge with the queen a knight’s jump away, bring your king, mate. Watch for stalemate!</li>
-<li><b>K+R vs K</b>: use your king to take the opposition, check with the rook to push the king back one rank at a time.</li>
-<li><b>Two rooks</b>: the ladder mate.</li></ol>`,
+<h3>Key squares</h3><p>For a pawn on its 2nd–4th rank, the key squares are the three squares <b>two ranks in front</b> of it. If the attacking king reaches a key square, the pawn promotes regardless of who is to move.</p><div data-fig="keysq"></div>
+<h3>King in front of the pawn</h3><div data-fig="endg"></div>
+<h3>Outside passed pawn</h3><p>A passed pawn far from the other pawns decoys the enemy king; your king then eats the remaining pawns.</p><div data-fig="passed"></div>`,
 drills:[
- {id:'kq',t:'Mate with king + queen',d:'Checkmate the lone king within 20 moves. The engine defends perfectly.',type:'play',level:4,goal:'mate',max:20,fen:'8/8/8/4k3/8/8/8/3QK3 w - - 0 1'},
- {id:'kr',t:'Mate with king + rook',d:'Checkmate within 35 moves using king and rook.',type:'play',level:4,goal:'mate',max:35,fen:'8/8/8/4k3/8/8/8/R3K3 w - - 0 1'},
- {id:'kp',t:'Promote the pawn',d:'Win the pawn race: make a queen within 15 moves against perfect defence.',type:'play',level:4,goal:'promote',max:15,fen:'4k3/8/4K3/4P3/8/8/8/8 w - - 0 1'}]},
+ {id:'kp',t:'Promote the pawn',d:'Make a queen within 15 moves against perfect defence.',type:'play',level:4,goal:'promote',max:15,fen:'4k3/8/4K3/4P3/8/8/8/8 w - - 0 1'},
+ {id:'pz_pawn',t:'Real puzzles: pawn endgames',d:'8 puzzles (rating 800–1700). Solve 5.',type:'pzset',theme:'pawnEndgame',min:800,max:1700,count:8,need:5}]},
 
+{t:'Endgames II: rook endgames',lvl:'Advanced',html:`
+<p>Rook endgames are the most common endgames in practice. Three rules: <b>activate your rook</b>, put rooks <b>behind passed pawns</b>, and <b>cut off</b> the enemy king.</p>
+<h3>Lucena position: how to win</h3><p>King on the queening square, pawn on the 7th, enemy king cut off. Win by <b>building a bridge</b>: put your rook on the 4th rank to block the checks.</p><div data-game="lucena"></div>
+<h3>Philidor position: how to draw</h3><p>Defender keeps the king in front of the pawn and the rook on the <b>6th rank</b> (3rd from the defender's side). When the pawn steps forward, the rook goes back and checks from behind.</p><div data-game="philidor" data-flip="1"></div>`,
+drills:[
+ {id:'lucena',t:'Win the Lucena',d:'Promote the pawn within 20 moves (engine defends perfectly).',type:'play',level:4,goal:'promote',max:20,fen:'1K6/1P1k4/8/8/8/8/r7/2R5 w - - 0 1'},
+ {id:'philidor',t:'Hold the Philidor as Black',d:'Defend as Black for 20 moves without losing or letting the pawn queen.',type:'play',level:4,goal:'hold',max:20,fen:'4k3/8/r7/4PK2/8/8/8/7R w - - 0 1',botFirst:1},
+ {id:'pz_rook',t:'Real puzzles: rook endgames',d:'8 puzzles (rating 900–1800). Solve 5.',type:'pzset',theme:'rookEndgame',min:900,max:1800,count:8,need:5}]},
+
+{t:'Learning from the masters',lvl:'Advanced',html:`
+<p>Studying great games teaches you <b>how ideas fit together</b>. Play through slowly, guess the next move, then compare.</p>
+<h3>The Immortal Game (1851)</h3><p>Anderssen gives up both rooks and his queen to checkmate with three minor pieces &ndash; development and initiative over material.</p><div data-game="immortal"></div>
+<h3>How to study a master game</h3><ol><li>Cover the moves; guess each move for the side you are following.</li><li>When you are wrong, ask <i>why</i> the master's move is better.</li><li>Note the plan in each phase: opening, middlegame, endgame.</li></ol>`,
+drills:[{id:'immortal_line',t:'Guess the move: the Immortal Game',d:'Play Anderssen’s moves as White. Pass with at most 6 mistakes.',type:'line',game:'immortal',side:'w',allow:6}]},
+
+/* ---------------- PRO ---------------- */
 {t:'Pro: think like a strong player',lvl:'Pro',html:`
 <h3>A thinking routine for every move</h3><ol>
-<li>What did the opponent’s last move <b>threaten</b>?</li>
+<li>What did the opponent's last move <b>threaten</b>?</li>
 <li>List <b>candidate moves</b> (2&ndash;4): forcing moves first.</li>
-<li><b>Calculate</b> each to a quiet position; evaluate (material, king safety, activity).</li>
-<li><b>Blunder check</b> the chosen move: what can they do now?</li></ol>
+<li><b>Calculate</b> each to a quiet position; evaluate (material, king safety, activity, structure).</li>
+<li><b>Blunder check</b> the chosen move.</li></ol>
 <h3>Advanced ideas</h3><ul>
-<li><b>Prophylaxis</b>: stop the opponent’s plan before it starts.</li>
+<li><b>Prophylaxis</b>: ask &ldquo;what does my opponent want?&rdquo; and stop it before it starts.</li>
 <li><b>Converting an advantage</b>: trade down, eliminate counterplay, avoid unnecessary risk.</li>
-<li><b>Good vs bad bishop</b>: a bishop blocked by its own pawns is bad.</li>
-<li><b>Minority attack, pawn breaks, open files</b>: create targets on the side where you are stronger.</li>
+<li><b>Two weaknesses</b>: one weakness can be defended; create a second on the other wing.</li>
+<li><b>Minority attack, pawn breaks, open files</b>: create targets where you are stronger.</li>
+<li><b>Quiet moves</b> and <b>zugzwang</b>: sometimes the best move threatens nothing &ndash; it takes away the opponent's good moves.</li>
 <li><b>Time management</b>: spend time at critical moments, play simple moves fast.</li></ul>
 <h3>How to keep improving</h3><ul>
-<li>15&ndash;30 minutes of <b>tactics puzzles daily</b>.</li><li><b>Analyse every game you lose</b>: find the moment it went wrong.</li>
-<li>Learn <b>one opening for White and two replies for Black</b>, understand the plans, not only moves.</li>
-<li>Study endgames and <b>classic games</b> (Capablanca, Fischer, Carlsen).</li><li>Play longer games (15+10 or slower) to practise thinking.</li></ul>`,
+<li>15&ndash;30 minutes of <b>tactics puzzles daily</b> (use the Puzzle trainer).</li><li><b>Analyse every game you lose</b>: find the moment it went wrong.</li>
+<li>Deepen your repertoire: one opening for White, two replies for Black &ndash; understand the plans.</li>
+<li>Study classic games (Capablanca, Fischer, Kasparov, Carlsen) and endgame books.</li><li>Play longer games (15+10 or slower) to practise thinking.</li></ul>`,
 drills:[
+ {id:'pz_pro',t:'Advanced puzzle set',d:'10 mixed puzzles (rating 1600–2200). Solve 5.',type:'pzset',theme:'',min:1600,max:2200,count:10,need:5},
  {id:'clean',t:'Clean game',d:'Play 30 moves against the medium bot without a single blunder (the coach decides).',type:'play',level:2,goal:'clean',max:30},
  {id:'beat2',t:'Beat the medium bot (~1500)',d:'Win a full game as White.',type:'play',level:2,goal:'win',max:150},
  {id:'beat3',t:'Beat the hard bot (~2000)',d:'Win a full game as White. This is a real achievement!',type:'play',level:3,goal:'win',max:150}]}
 ];
+
 
 const stageDone=i=>STAGES[i].drills.every(d=>PROG[d.id]);
 const unlocked=i=>i==0||PROG.__all||stageDone(i-1);
@@ -423,12 +526,17 @@ RUN.puzzles=(el,d,onPass)=>{
 
 RUN.play=(el,d,onPass)=>{
   const START=d.fen||'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  const t0=START.split(' ')[1],side=d.botFirst?(t0=='w'?'b':'w'):t0,sname=side=='w'?'White':'Black';
   let P=null,last={},n=0,blunders=0,castled=false,sans=[],done=false;
   el.innerHTML='<div class="msg"></div><div></div><div class="msg" style="font-weight:400"></div><div class="row"><button>Hint</button><button>Restart</button></div><div class="dim" style="font-size:13px"></div>';
   const [msg,bd,coach,row,hist]=el.children;
-  const paint=playBoard(bd,()=>P,move,()=>last);
-  const status=()=>{msg.className='msg';msg.textContent=`Your move (White) – move ${n+1}`+(d.max&&d.goal!='win'?` of ${d.max}`:'')};
-  async function start(){P=await api('/t/pos',{fen:START});last={};n=0;blunders=0;castled=false;sans=[];done=false;coach.textContent='';hist.textContent='';status();paint()}
+  const paint=playBoard(bd,()=>P,move,()=>last,()=>side=='b');
+  const status=()=>{msg.className='msg';msg.textContent=`Your move (${sname}) – move ${n+1}`+(d.max&&d.goal!='win'&&d.goal!='free'?` of ${d.max}`:'')};
+  async function start(){
+    P=await api('/t/pos',{fen:START});last={};n=0;blunders=0;castled=false;sans=[];done=false;coach.textContent='';hist.textContent='';
+    if(d.botFirst){P.busy=true;paint();const r=await api('/t/bot',{fen:START,level:d.level});P=r.pos;last={[r.uci.slice(0,2)]:'hB',[r.uci.slice(2,4)]:'hB'};coach.innerHTML=`Bot: <b>${r.san}</b>`}
+    status();paint();
+  }
   function finish(win,text){done=true;P.busy=true;msg.className='msg '+(win?'ok':'no');msg.textContent=text;if(win)onPass()}
   async function move(uci){
     if(done)return;P.busy=true;coach.textContent='Bot is thinking…';
@@ -442,15 +550,17 @@ RUN.play=(el,d,onPass)=>{
     coach.innerHTML=`You: <b>${r.san}</b> ${coachText(r.grade&&{...r.grade,why:[]})}`+(r.reply?` &nbsp;|&nbsp; Bot: <b>${r.reply.san}</b>`:'')+whyHtml(r.grade);
     const p=r.pos;
     if(d.goal=='promote'&&r.san.includes('='))return finish(true,'Queen! Passed.');
-    if(p.mate)return finish(p.turn=='b','Checkmate! '+(p.turn=='b'?'You win – passed!':'The bot won. Restart and try again.'));
-    if(p.over)return finish(false,'Draw ('+(p.stalemate?'stalemate':'game over')+'). Restart and try again.');
+    if(d.goal=='hold'&&r.reply&&r.reply.san.includes('='))return finish(false,'The pawn queened. Restart and try again.');
+    if(p.mate)return finish(p.turn!=side,'Checkmate! '+(p.turn!=side?'You win – well done!':'The bot won. Restart and try again.'));
+    if(p.over)return finish(d.goal=='hold','Draw ('+(p.stalemate?'stalemate':'game over')+').'+(d.goal=='hold'?' You held – passed!':' Restart and try again.'));
     if(d.goal=='opening'&&n>=d.max){
       const P2=parseFen(p.fen),home=[['b1','N'],['g1','N'],['c1','B'],['f1','B']].filter(([s,x])=>P2[s]==x).length,dev=4-home;
       const ok=castled&&dev>=3&&!blunders;
       return finish(ok,ok?`Great opening: castled, ${dev} minor pieces developed, no blunders. Passed!`:`Not yet: castled ${castled?'✓':'✗'}, minor pieces developed ${dev}/4 (need 3), blunders ${blunders}. Restart and try again.`);
     }
     if(d.goal=='clean'){if(blunders)return finish(false,'Blunder – the clean game is broken. Restart and try again.');if(n>=d.max)return finish(true,`${d.max} moves without a blunder. Passed!`)}
-    if(d.max&&n>=d.max&&d.goal!='clean')return finish(false,`Out of moves (${d.max}). Restart and try again.`);
+    if(d.goal=='hold'&&n>=d.max)return finish(true,`You held for ${d.max} moves. Passed!`);
+    if(d.max&&n>=d.max)return finish(false,`Out of moves (${d.max}). Restart and try again.`);
     P.busy=false;status();
   }
   row.children[0].onclick=async()=>{if(done||!P)return;const h=await api('/t/hint',{fen:P.fen});last={[h.uci.slice(0,2)]:'hC',[h.uci.slice(2,4)]:'hA'};coach.innerHTML=`Hint: <b>${h.san}</b>`;paint()};
@@ -458,54 +568,83 @@ RUN.play=(el,d,onPass)=>{
   start();
 };
 
-/* ================= puzzle trainer (Lichess puzzle database, CC0) ================= */
+/* ================= game viewer + "play the line" drill ================= */
+let GAMES=null;
+const loadGames=async()=>{if(!GAMES)GAMES=await (await fetch('/games.json')).json();return GAMES};
+function moveLabels(g){ // "1.", "1...", "2." ... for each ply
+  return g.sans.map((s,j)=>{const f=g.fens[j].split(' '),num=f[5],w=f[1]=='w';return (w?num+'. ':(j==0?num+'... ':''))+s});
+}
+async function viewer(host,id,flip){
+  const g=(await loadGames())[id];let i=0;
+  host.innerHTML='<div></div><div class="cap" style="min-height:2.6em"></div><div class="row"><button>⏮</button><button>◀</button><button class="pri">▶</button><button>⏭</button></div><div class="dim" style="font-size:13.5px;line-height:1.9"></div>';
+  const [bd,cm,row,ml]=host.children,labels=moveLabels(g);
+  const show=()=>{
+    const u=g.ucis[i-1];draw(bd,g.fens[i],{flip,hl:u?{[u.slice(0,2)]:'hC',[u.slice(2,4)]:'hA'}:{}});
+    cm.innerHTML=`<b>${i?labels[i-1].replace(/^\d+\.\.\. /,''):g.title}</b>${g.comments[i]?' – '+g.comments[i]:(i==0?'':'')}`;
+    ml.innerHTML=labels.map((l,j)=>`<span data-j="${j+1}" style="cursor:pointer;padding:1px 3px;border-radius:4px;${j+1==i?'background:#7ccf8a;color:#111':''}">${l}</span>`).join(' ')+(i==g.sans.length&&g.result?' <b>'+g.result+'</b>':'');
+    ml.querySelectorAll('span').forEach(s=>s.onclick=()=>{i=+s.dataset.j;show()});
+  };
+  const [first,prev,next,lastB]=row.children;
+  first.onclick=()=>{i=0;show()};prev.onclick=()=>{i=Math.max(0,i-1);show()};next.onclick=()=>{i=Math.min(g.sans.length,i+1);show()};lastB.onclick=()=>{i=g.sans.length;show()};
+  show();
+}
+
+RUN.line=async(el,d,onPass)=>{
+  const g=(await loadGames())[d.game],side=d.side;let i=0,miss=0,missHere=false,P=null,last={},done=false;
+  el.innerHTML='<div class="msg"></div><div></div><div class="cap" style="min-height:2.6em"></div><div class="row"><button>Restart</button></div>';
+  const [msg,bd,cm,row]=el.children;
+  const paint=playBoard(bd,()=>P,move,()=>last,()=>side=='b');
+  const comment=k=>g.comments[k]?g.comments[k]:'';
+  async function load(){P=await api('/t/pos',{fen:g.fens[i]});paint();msg.className='msg';msg.textContent=`Your move (${side=='w'?'White':'Black'}) – mistakes ${miss}/${d.allow}`}
+  async function opp(){ // play the other side's move from the line
+    if(i>=g.sans.length)return end();
+    if(g.fens[i].split(' ')[1]!=side){const u=g.ucis[i];i++;last={[u.slice(0,2)]:'hB',[u.slice(2,4)]:'hB'};P={fen:g.fens[i],legal:{},busy:true};paint();
+      cm.innerHTML=`Opponent: <b>${g.sans[i-1]}</b>`+(comment(i)?' – '+comment(i):'');await new Promise(r=>setTimeout(r,500))}
+    if(i>=g.sans.length)return end();
+    await load();
+  }
+  function end(){done=true;const ok=miss<=d.allow;msg.className='msg '+(ok?'ok':'no');msg.textContent=ok?`Line complete with ${miss} mistake(s). Passed!`:`Line complete, but ${miss} mistakes (max ${d.allow}). Restart and try again.`;if(P)P.busy=true;if(ok)onPass()}
+  async function move(uci){
+    if(done)return;const want=g.ucis[i];
+    if(uci.slice(0,4)!=want.slice(0,4)){
+      if(!missHere){miss++;missHere=true}
+      last={[want.slice(0,2)]:'hC',[want.slice(2,4)]:'hA'};paint();
+      msg.className='msg no';msg.textContent=`Not the move in this line. Play ${g.sans[i]} (shown) – mistakes ${miss}/${d.allow}`;return;
+    }
+    missHere=false;i++;last={[want.slice(0,2)]:'hC',[want.slice(2,4)]:'hA'};P={fen:g.fens[i],legal:{},busy:true};paint();
+    cm.innerHTML=`<span class="ok">✓</span> <b>${g.sans[i-1]}</b>`+(comment(i)?' – '+comment(i):'');
+    await opp();
+  }
+  row.children[0].onclick=()=>{i=0;miss=0;missHere=false;done=false;last={};cm.innerHTML=comment(0)||'';opp()};
+  cm.innerHTML=comment(0)||g.title;opp();
+};
+
+/* ================= puzzles (Lichess puzzle database, CC0) ================= */
 let PST={rating:600,solved:0,failed:0,streak:0,best:0,n:0,recent:[]};
 try{Object.assign(PST,JSON.parse(localStorage.pzStats||'{}'))}catch(e){}
 const savePst=()=>{try{localStorage.pzStats=JSON.stringify(PST)}catch(e){}};
 let PUZ=null;
+const loadPuz=async()=>{if(!PUZ)PUZ=await (await fetch('/puzzles.json')).json();return PUZ};
 const THEMES=[['','All themes'],['mateIn1','Mate in 1'],['mateIn2','Mate in 2'],['mateIn3','Mate in 3'],['fork','Fork'],['pin','Pin'],['skewer','Skewer'],
  ['discoveredAttack','Discovered attack'],['hangingPiece','Hanging piece'],['backRankMate','Back-rank mate'],['sacrifice','Sacrifice'],['deflection','Deflection'],
  ['attraction','Attraction'],['doubleCheck','Double check'],['trappedPiece','Trapped piece'],['promotion','Promotion'],['advancedPawn','Advanced pawn'],
- ['defensiveMove','Defensive move'],['quietMove','Quiet move'],['zugzwang','Zugzwang'],['opening','Opening'],['middlegame','Middlegame'],
+ ['defensiveMove','Defensive move'],['quietMove','Quiet move'],['zugzwang','Zugzwang'],['kingsideAttack','Kingside attack'],['opening','Opening'],['middlegame','Middlegame'],
  ['endgame','Endgame'],['rookEndgame','Rook endgame'],['pawnEndgame','Pawn endgame'],['queenEndgame','Queen endgame']];
 const TNAME=Object.fromEntries(THEMES);
+const themesOf=z=>z[4].filter(t=>TNAME[t]).map(t=>TNAME[t]).join(', ')||'tactics';
 
-async function trainer(){
-  const app=$('app');updateBar();
-  app.innerHTML=`<p><a href="#" style="color:var(--acc)">&larr; Course</a></p><h1>Puzzle trainer</h1>
-  <div class="card" id="pzstats"></div>
-  <div class="row"><select id="pztheme">${THEMES.map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
-  <div class="msg" id="pzmsg">Loading puzzles…</div><div id="pzbd"></div><div class="msg" id="pzinfo" style="font-weight:400"></div>
-  <div class="row" id="pzrow"></div><p class="dim" style="font-size:13px;text-align:center">Puzzles from the free <a style="color:var(--acc)" href="https://database.lichess.org/#puzzles">Lichess puzzle database</a> (CC0). Your rating goes up when you solve on the first try and down when you miss or use a hint.</p>`;
-  try{$('pztheme').value=localStorage.pzTheme||''}catch(e){}
-  $('pztheme').onchange=()=>{try{localStorage.pzTheme=$('pztheme').value}catch(e){};next()};
-  if(!PUZ)PUZ=await (await fetch('/puzzles.json')).json();
-  let z=null,P=null,idx=0,rated=false,hinted=false,last={},flip=false;
-  const msg=$('pzmsg'),info=$('pzinfo'),row=$('pzrow'),bd=$('pzbd');
-  const paint=playBoard(bd,()=>P,move,()=>last,()=>flip);
-  const stats=()=>{const t=PST.solved+PST.failed;$('pzstats').innerHTML=`Rating <b style="font-size:20px">${Math.round(PST.rating)}</b> &nbsp; Solved ${PST.solved} &nbsp; Accuracy ${t?Math.round(100*PST.solved/t):0}% &nbsp; Streak ${PST.streak} (best ${PST.best})`};
-  function rate(win){ // Elo update, once per puzzle
-    if(rated)return;rated=true;
-    const E=1/(1+Math.pow(10,(z[3]-PST.rating)/400)),K=PST.n<20?60:32;
-    PST.rating=Math.max(100,PST.rating+K*((win&&!hinted?1:0)-E));PST.n++;
-    if(win&&!hinted){PST.solved++;PST.streak++;PST.best=Math.max(PST.best,PST.streak)}else{PST.failed++;PST.streak=0}
-    PST.recent=[z[0],...PST.recent].slice(0,400);savePst();stats();
-  }
-  function pick(){
-    const th=$('pztheme').value,pool=PUZ.filter(p=>(!th||p[4].includes(th))&&!PST.recent.includes(p[0]));
-    for(const w of [125,250,500,5000]){const c=pool.filter(p=>Math.abs(p[3]-PST.rating)<=w);if(c.length>=3)return c[Math.floor(Math.random()*c.length)]}
-    return pool[Math.floor(Math.random()*pool.length)]||PUZ[Math.floor(Math.random()*PUZ.length)];
-  }
-  async function next(){
-    z=pick();idx=0;rated=false;hinted=false;
-    P=await api('/t/pos',{fen:z[1]});flip=P.turn=='b';last={[z[5].slice(0,2)]:'hB',[z[5].slice(2,4)]:'hB'};paint();
-    msg.className='msg';msg.textContent=`${P.turn=='w'?'White':'Black'} to move – find the best move`;
-    info.innerHTML=`<small>Puzzle rating ${z[3]} · red = opponent's last move</small>`;
-    row.innerHTML='<button>Hint</button><button>Show solution</button><button>Skip</button>';
-    row.children[0].onclick=()=>{hinted=true;last={[z[2][idx].slice(0,2)]:'hC'};paint();info.innerHTML='<small>Hint: move the highlighted piece (counts as a miss for your rating).</small>'};
-    row.children[1].onclick=()=>{rate(false);showSolution()};
-    row.children[2].onclick=next;
-  }
+function puzzleUI(host){
+  host.innerHTML='<div class="msg"></div><div></div><div class="msg" style="font-weight:400"></div><div class="row"></div>';
+  const [msg,bd,info,row]=host.children;return {msg,bd,info,row};
+}
+// Solve one puzzle z = [id, fen, solution ucis, rating, themes, opponent's last move].
+// done(clean, hinted) is called once; then a button labelled nextLabel calls onNext. onSkip (optional) adds a Skip button.
+async function runPuzzle(u,z,done,nextLabel,onNext,onSkip){
+  let P=null,idx=0,hinted=false,resolved=false,last={},flip=false;
+  const {msg,info,row}=u;
+  const paint=playBoard(u.bd,()=>P,move,()=>last,()=>flip);
+  const resolve=ok=>{if(resolved)return;resolved=true;done(ok&&!hinted,hinted)};
+  const nextBtn=()=>{row.innerHTML=`<button class="pri">${nextLabel}</button>`;row.children[0].onclick=onNext};
   async function apply(uci){const r=await api('/t/move',{fen:P.fen,uci,coach:0,reply:0});P=r.pos;last={[uci.slice(0,2)]:'hC',[uci.slice(2,4)]:'hA'};paint();return r}
   async function move(uci){
     const want=z[2][idx];P.busy=true;
@@ -514,32 +653,79 @@ async function trainer(){
       if(idx>=z[2].length)return solved();
       info.innerHTML='<small>Correct! Keep going…</small>';P.busy=true;
       await new Promise(r=>setTimeout(r,450));
-      const r=await apply(z[2][idx]);idx++;   // opponent's forced reply
+      const r=await apply(z[2][idx]);idx++;
       last={[z[2][idx-1].slice(0,2)]:'hB',[z[2][idx-1].slice(2,4)]:'hB'};paint();
       info.innerHTML=`<small>Opponent replied <b>${r.san}</b>. Your move.</small>`;return;
     }
     const r=await api('/t/move',{fen:P.fen,uci,coach:1,reply:0});
     if(r.pos&&r.pos.mate){P=r.pos;last={[uci.slice(0,2)]:'hC',[uci.slice(2,4)]:'hA'};paint();return solved()}  // any checkmate counts
-    rate(false);P=r.pos;last={[uci.slice(0,2)]:'hB',[uci.slice(2,4)]:'hB'};P.busy=true;paint();
+    resolve(false);P=r.pos;last={[uci.slice(0,2)]:'hB',[uci.slice(2,4)]:'hB'};P.busy=true;paint();
     msg.className='msg no';msg.textContent=`Not the solution (${r.san}).`;
     info.innerHTML=whyHtml(r.grade)||'';
-    row.innerHTML='<button class="pri">Show solution</button><button>Next puzzle</button>';
-    row.children[0].onclick=showSolution;row.children[1].onclick=next;
+    row.innerHTML=`<button>Show solution</button><button class="pri">${nextLabel}</button>`;
+    row.children[0].onclick=showSolution;row.children[1].onclick=onNext;
   }
   function solved(){
-    rate(true);P.busy=true;msg.className='msg ok';msg.textContent=hinted?'Solved (with hint).':'Solved! ✓';
-    info.innerHTML=`<small>Puzzle rating ${z[3]} · ${z[4].filter(t=>TNAME[t]).map(t=>TNAME[t]).join(', ')}</small>`;
-    row.innerHTML='<button class="pri">Next puzzle</button>';row.children[0].onclick=next;
+    resolve(true);P.busy=true;msg.className='msg ok';msg.textContent=hinted?'Solved (with hint).':'Solved! ✓';
+    info.innerHTML=`<small>Rating ${z[3]} · ${themesOf(z)}</small>`;nextBtn();
   }
   async function showSolution(){
-    row.innerHTML='';P=await api('/t/pos',{fen:z[1]});paint();const sans=[];
-    for(const u of z[2]){await new Promise(r=>setTimeout(r,700));const r=await apply(u);sans.push(r.san)}
-    P.busy=true;msg.className='msg';msg.textContent='Solution: '+sans.join(' ');
-    info.innerHTML=`<small>Themes: ${z[4].filter(t=>TNAME[t]).map(t=>TNAME[t]).join(', ')||'tactics'}</small>`;
-    row.innerHTML='<button class="pri">Next puzzle</button>';row.children[0].onclick=next;
+    resolve(false);row.innerHTML='';P=await api('/t/pos',{fen:z[1]});P.busy=true;last={};paint();const sans=[];
+    for(const m of z[2]){await new Promise(r=>setTimeout(r,700));const r=await apply(m);P.busy=true;sans.push(r.san)}
+    msg.className='msg';msg.textContent='Solution: '+sans.join(' ');info.innerHTML=`<small>Themes: ${themesOf(z)}</small>`;nextBtn();
   }
+  P=await api('/t/pos',{fen:z[1]});flip=P.turn=='b';last={[z[5].slice(0,2)]:'hB',[z[5].slice(2,4)]:'hB'};paint();
+  msg.className='msg';msg.textContent=`${P.turn=='w'?'White':'Black'} to move – find the best move`;
+  info.innerHTML=`<small>Puzzle rating ${z[3]} · red = opponent's last move</small>`;
+  row.innerHTML='<button>Hint</button><button>Show solution</button>'+(onSkip?'<button>Skip</button>':'');
+  row.children[0].onclick=()=>{hinted=true;last={[z[2][idx].slice(0,2)]:'hC'};paint();info.innerHTML='<small>Hint: move the highlighted piece (counts as a miss).</small>'};
+  row.children[1].onclick=showSolution;
+  if(onSkip)row.children[2].onclick=onSkip;
+}
+
+async function trainer(){
+  const app=$('app');updateBar();
+  app.innerHTML=`<p><a href="#" style="color:var(--acc)">&larr; Course</a></p><h1>Puzzle trainer</h1>
+  <div class="card" id="pzstats"></div>
+  <div class="row"><select id="pztheme">${THEMES.map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
+  <div id="pzbox"><div class="msg">Loading puzzles…</div></div><p class="dim" style="font-size:13px;text-align:center">Puzzles from the free <a style="color:var(--acc)" href="https://database.lichess.org/#puzzles">Lichess puzzle database</a> (CC0). Your rating goes up when you solve on the first try and down when you miss or use a hint.</p>`;
+  try{$('pztheme').value=localStorage.pzTheme||''}catch(e){}
+  $('pztheme').onchange=()=>{try{localStorage.pzTheme=$('pztheme').value}catch(e){};next()};
+  await loadPuz();
+  const stats=()=>{const t=PST.solved+PST.failed;$('pzstats').innerHTML=`Rating <b style="font-size:20px">${Math.round(PST.rating)}</b> &nbsp; Solved ${PST.solved} &nbsp; Accuracy ${t?Math.round(100*PST.solved/t):0}% &nbsp; Streak ${PST.streak} (best ${PST.best})`};
+  function rate(z,clean){
+    const E=1/(1+Math.pow(10,(z[3]-PST.rating)/400)),K=PST.n<20?60:32;
+    PST.rating=Math.max(100,PST.rating+K*((clean?1:0)-E));PST.n++;
+    if(clean){PST.solved++;PST.streak++;PST.best=Math.max(PST.best,PST.streak)}else{PST.failed++;PST.streak=0}
+    PST.recent=[z[0],...PST.recent].slice(0,400);savePst();stats();
+  }
+  function pick(){
+    const th=$('pztheme').value,pool=PUZ.filter(p=>(!th||p[4].includes(th))&&!PST.recent.includes(p[0]));
+    for(const w of [125,250,500,5000]){const c=pool.filter(p=>Math.abs(p[3]-PST.rating)<=w);if(c.length>=3)return c[Math.floor(Math.random()*c.length)]}
+    return pool[Math.floor(Math.random()*pool.length)]||PUZ[Math.floor(Math.random()*PUZ.length)];
+  }
+  function next(){const z=pick();runPuzzle(puzzleUI($('pzbox')),z,clean=>rate(z,clean),'Next puzzle',next,next)}
   stats();next();
 }
+
+RUN.pzset=async(el,d,onPass)=>{
+  el.innerHTML='<div class="msg">Loading puzzles…</div>';
+  await loadPuz();
+  const list=shuffle(PUZ.filter(p=>(!d.theme||p[4].includes(d.theme))&&p[3]>=d.min&&p[3]<=d.max)).slice(0,d.count);
+  let i=0,ok=0;
+  el.innerHTML='<div class="dim" style="text-align:center"></div><div></div>';
+  const [prog,box]=el.children;
+  function run(){
+    prog.textContent=`Puzzle ${i+1} of ${list.length} · solved ${ok} (need ${d.need})`;
+    runPuzzle(puzzleUI(box),list[i],clean=>{if(clean)ok++;prog.textContent=`Puzzle ${i+1} of ${list.length} · solved ${ok} (need ${d.need})`},
+      i+1<list.length?'Next':'Finish',()=>{i++;i<list.length?run():end()});
+  }
+  function end(){
+    const pass=ok>=d.need;box.innerHTML=`<div class="msg ${pass?'ok':'no'}">Solved ${ok} of ${list.length}. ${pass?'Passed!':'Need '+d.need+' – try a new set.'}</div><div class="row"><button class="pri">New set</button></div>`;
+    box.querySelector('button').onclick=()=>RUN.pzset(el,d,onPass);if(pass)onPass();
+  }
+  run();
+};
 
 /* ================= router ================= */
 function route(){const m=location.hash.match(/^#s(\d+)/);location.hash=='#puzzles'?trainer():m?stage(+m[1]-1):home();scrollTo(0,0)}

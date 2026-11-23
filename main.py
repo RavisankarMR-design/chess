@@ -298,6 +298,31 @@ def t_move(fen: str, uci: str, level: int = 4, coach: int = 1, reply: int = 1):
     return out
 
 
+@app.get("/t/bot")
+def t_bot(fen: str, level: int = 4):
+    """Bot moves first (used when the trainee plays Black from a White-to-move position)."""
+    b = chess.Board(fen)
+    opts, lim = LEVELS[max(0, min(level, 4))]
+
+    def go(e):
+        try:
+            if opts:
+                e.configure(opts)
+            return e.play(b, lim).move
+        finally:
+            if opts:
+                e.configure(RESET)
+    mv = with_engine(go)
+    san = b.san(mv)
+    b.push(mv)
+    return {"uci": mv.uci(), "san": san, "pos": pos(b)}
+
+
+@app.get("/games.json")
+def games():
+    return FileResponse(HERE / "games.json", headers={"Cache-Control": "public, max-age=3600"})
+
+
 @app.get("/t/hint")
 def t_hint(fen: str):
     b = chess.Board(fen)
