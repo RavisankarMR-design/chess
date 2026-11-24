@@ -1,0 +1,103 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Blackjack Table - Casino Coach</title>
+<link rel="stylesheet" href="table.css">
+<div class="top"><a href="index.html">&larr; Casino Coach</a><h1>Blackjack</h1><span class="sp"></span><a href="index.html#bj">Lessons &amp; drills</a><span>Bankroll <span class="bankv" id="bank"></span></span></div>
+<div class="wrap">
+ <div class="main">
+  <div class="bj rail feltbg" id="table">
+   <svg class="arc" viewBox="0 0 980 560"><defs><path id="a1" d="M150 250 Q490 330 830 250"/><path id="a2" d="M190 292 Q490 366 790 292"/></defs>
+    <text fill="#d4af37" font-size="24" font-family="Georgia" letter-spacing="5" text-anchor="middle" opacity=".85"><textPath href="#a1" startOffset="50%">BLACKJACK PAYS 3 TO 2</textPath></text>
+    <text fill="#ffffffaa" font-size="14" font-family="Georgia" letter-spacing="3" text-anchor="middle"><textPath href="#a2" startOffset="50%">DEALER MUST STAND ON ALL 17s · DRAW TO 16</textPath></text></svg>
+   <div class="tray">🪙</div><div class="shoe">SHOE<br><span id="shoeleft"></span></div>
+   <div class="dealer"><div class="hand" id="dl"></div><span class="tot" id="dtot"></span></div>
+   <div class="res" id="res"></div>
+   <div class="pl" id="pl"></div>
+   <div class="circle" id="circle"></div>
+  </div>
+  <div class="bar" id="chips"></div>
+  <div class="bar"><button class="pri" id="deal">Deal</button><button id="clear">Clear bet</button><span id="acts"></span></div>
+ </div>
+ <div class="side">
+  <div class="panel"><h3>Coach</h3><div id="coach">Place a bet with the chips, then press Deal.</div>
+   <label class="dim"><input type="checkbox" id="auto" checked> show the correct move before I act</label>
+   <div class="dim" id="score" style="margin-top:6px"></div></div>
+  <div class="panel"><h3>Card counting (Hi-Lo)</h3><label class="dim"><input type="checkbox" id="showc"> show count</label><div id="count" class="dim">Count hidden. Track it yourself, then tick the box to check.</div>
+   <details><summary>How it works</summary><p class="dim">2-6 = +1, 7-9 = 0, 10-A = -1. True count = running count / decks left. Positive = more tens and aces left = good for you.</p></details></div>
+  <div class="panel"><h3>Quick rules</h3><div class="dim">6 decks · dealer stands on all 17 · blackjack pays 3:2 · double any two cards · split once · no surrender.
+   <br>Dealer 2-6 is weak (may bust). 7-A is strong. Always split A and 8. Never split 10s.</div></div>
+ </div>
+</div>
+<script src="logic.js"></script><script src="ui.js"></script>
+<script>
+const MOVE = { H: 'Hit', S: 'Stand', D: 'Double', P: 'Split' };
+let shoe = [], count = 0, bank = 1000, bet = 0, S = null, n = 0, ok = 0, busy = false;
+$('chips').innerHTML = chipBtns([1, 5, 25, 100, 500]);
+const draw = hidden => { if (shoe.length < 52) { shoe = shuffle([].concat(...Array(6).fill(0).map(newDeck))); count = 0; } const x = shoe.pop(); if (!hidden) count += hiLo(x); return x; };
+const up = () => pv(S.dealer[0]);
+const acts = h => ({ d: h.cards.length === 2 && bank >= h.bet, p: S.hands.length === 1 && h.cards.length === 2 && pv(h.cards[0]) === pv(h.cards[1]) && bank >= h.bet });
+document.querySelectorAll('.chipb').forEach(b => b.onclick = () => { if (S && !S.over) return; const v = +b.dataset.v; if (bet + v <= bank) { bet += v; paint(); } });
+$('clear').onclick = () => { if (!S || S.over) { bet = 0; paint(); } };
+$('showc').onchange = paint;
+
+function paint() {
+  const inRound = S && !S.over;
+  $('bank').textContent = '$' + bank; $('shoeleft').textContent = Math.round(shoe.length / 52 * 10) / 10 + ' decks';
+  $('deal').disabled = inRound || bet < 1; $('clear').disabled = inRound;
+  document.querySelectorAll('.chipb').forEach(b => b.disabled = inRound);
+  const dec = Math.max(shoe.length / 52, .5);
+  $('count').textContent = $('showc').checked ? `Running count ${count} · true count ${(count / dec).toFixed(1)} (${dec.toFixed(1)} decks left)` : 'Count hidden. Track it yourself, then tick the box to check.';
+  $('score').textContent = n ? `Decisions matching basic strategy: ${ok}/${n} (${Math.round(100 * ok / n)}%)` : '';
+  if (!S) { $('circle').innerHTML = stackH(bet); return; }
+  $('dl').innerHTML = S.dealer.map((c, i) => faceH(c, i === 1 && !S.over)).join('');
+  $('dtot').textContent = S.over ? bjVal(S.dealer).total : (S.dealer.length ? '' : '');
+  $('pl').innerHTML = S.hands.map((h, i) => `<div class="spot ${i === S.i && !S.over ? 'act' : ''}"><div class="hand">${h.cards.map(c => faceH(c)).join('')}</div><span class="tot">${bjVal(h.cards).total}${bjVal(h.cards).soft ? ' soft' : ''}</span> ${h.res || ''}</div>`).join('');
+  $('circle').innerHTML = inRound || S.over ? stackH(S.hands.reduce((s, h) => s + h.bet, 0)) : stackH(bet);
+  if (inRound) {
+    const h = S.hands[S.i], a = acts(h);
+    $('acts').innerHTML = [['H', 1], ['S', 1], ['D', a.d], ['P', a.p]].map(([k, e]) => `<button class="pri" ${e ? '' : 'disabled'} data-k="${k}">${MOVE[k]}</button>`).join(' ');
+    $('acts').querySelectorAll('button').forEach(b => b.onclick = () => act(b.dataset.k));
+    if ($('auto').checked) $('coach').innerHTML = `Correct move: <b class="ok">${MOVE[bjAdvice(h.cards, up(), a.d, a.p)]}</b><br><span class="dim">You have ${bjVal(h.cards).total}${bjVal(h.cards).soft ? ' (soft)' : ''}, dealer shows ${up() === 11 ? 'A' : up()}. Dealer is ${up() <= 6 ? 'weak, may bust' : 'strong, must beat it'}.</span>`;
+  } else $('acts').innerHTML = '';
+}
+$('deal').onclick = () => {
+  if (bet > bank) bet = bank; if (bet < 1) return;
+  bank -= bet; $('res').textContent = '';
+  S = { hands: [{ cards: [draw(), draw()], bet }], i: 0, over: false, dealer: [draw(), draw(true)] };
+  const pb = bjVal(S.hands[0].cards).total === 21, dbj = bjVal(S.dealer).total === 21;
+  if (pb || dbj) settle(true); paint();
+};
+function act(k) {
+  const h = S.hands[S.i], a = acts(h), rec = bjAdvice(h.cards, up(), a.d, a.p);
+  n++; if (k === rec) { ok++; $('coach').innerHTML = `<span class="ok">Good: ${MOVE[k]}.</span>`; } else $('coach').innerHTML = `<span class="no">Basic strategy says ${MOVE[rec]}, not ${MOVE[k]}.</span><br><span class="dim">Dealer ${up() <= 6 ? 'shows a weak card (2-6): avoid busting.' : 'shows a strong card (7-A): you must improve your hand.'}</span>`;
+  if (k === 'H') { h.cards.push(draw()); if (bjVal(h.cards).total >= 21) h.done = true; }
+  else if (k === 'S') h.done = true;
+  else if (k === 'D') { bank -= h.bet; h.bet *= 2; h.cards.push(draw()); h.done = true; }
+  else if (k === 'P') { bank -= h.bet; const [x, y] = h.cards, aces = x.r === 14;
+    S.hands = [{ cards: [x, draw()], bet: h.bet, done: aces, split: 1 }, { cards: [y, draw()], bet: h.bet, done: aces, split: 1 }]; S.i = 0; }
+  while (S.i < S.hands.length && S.hands[S.i].done) S.i++;
+  if (S.i >= S.hands.length) { dealerPlay(); } else paint();
+}
+async function dealerPlay() {
+  S.over = true; count += hiLo(S.dealer[1]); paint();
+  const live = S.hands.some(h => bjVal(h.cards).total <= 21);
+  while (live && bjVal(S.dealer).total < 17) { await sleep(600); S.dealer.push(draw()); paint(); }
+  settle(false); paint();
+}
+function settle(natural) {
+  if (natural) { S.over = true; count += hiLo(S.dealer[1]); }
+  const dt = bjVal(S.dealer).total; let net = 0;
+  S.hands.forEach(h => { const t = bjVal(h.cards).total, bj = natural && t === 21 && h.cards.length === 2 && !h.split, dbj = natural && dt === 21;
+    if (t > 21) { h.res = '<span class="no">BUST</span>'; net -= h.bet; }
+    else if (bj && !dbj) { bank += h.bet * 2.5; net += h.bet * 1.5; h.res = '<span class="ok">BLACKJACK 3:2</span>'; }
+    else if (dbj && !bj) { net -= h.bet; h.res = '<span class="no">dealer blackjack</span>'; }
+    else if (dt > 21 || t > dt) { bank += h.bet * 2; net += h.bet; h.res = '<span class="ok">WIN</span>'; }
+    else if (t === dt) { bank += h.bet; h.res = '<span class="mid">PUSH</span>'; }
+    else { net -= h.bet; h.res = '<span class="no">LOSE</span>'; } });
+  bank = Math.round(bank * 100) / 100;
+  $('res').innerHTML = net > 0 ? `<span style="color:#7ccf8a">+$${net}</span>` : net < 0 ? `<span style="color:#ff8a80">-$${-net}</span>` : '<span style="color:#ffd166">Push</span>';
+  if (bank < 1) { bank = 1000; bet = 0; $('coach').innerHTML += '<br><span class="mid">Out of chips. Fresh $1000 bankroll (play money).</span>'; }
+  if (bet > bank) bet = bank;
+}
+paint();
+</script>

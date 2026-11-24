@@ -7,7 +7,8 @@ import chess
 import chess.engine
 from fastapi import FastAPI
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 HERE = Path(__file__).parent
 SF = os.environ.get("STOCKFISH") or shutil.which("stockfish") or "/usr/games/stockfish"
@@ -69,8 +70,18 @@ def parse_move(b, u):
 
 
 @app.get("/")
-def index():
+def home():
+    return FileResponse(HERE / "home.html")
+
+
+@app.get("/chess")
+def chess_helper():
     return FileResponse(HERE / "tap.html")
+
+
+@app.get("/casino")
+def casino_slash():
+    return RedirectResponse("/casino/")
 
 
 @app.get("/learn")
@@ -329,3 +340,6 @@ def t_hint(fen: str):
     info = with_engine(lambda e: e.analyse(b, chess.engine.Limit(time=0.5)))
     mv = info["pv"][0]
     return {"uci": mv.uci(), "san": b.san(mv), "eval": fmt(info["score"].pov(b.turn))}
+
+
+app.mount("/casino", StaticFiles(directory=HERE / "casino", html=True), name="casino")  # after all routes

@@ -1,0 +1,139 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Poker Table - Casino Coach</title>
+<link rel="stylesheet" href="table.css">
+<div class="top"><a href="index.html">&larr; Casino Coach</a><h1>Texas Hold'em · 6-max</h1><span class="sp"></span><a href="index.html#poker">Lessons &amp; drills</a><span>Your stack <span class="bankv" id="bank"></span></span></div>
+<div class="wrap">
+ <div class="main">
+  <div class="pk rail feltbg" id="table"></div>
+  <div class="bar" id="ctl"></div>
+ </div>
+ <div class="side">
+  <div class="panel"><h3>Coach</h3><div id="coach">Press Deal to start. Blinds are 10/20, everyone starts with $1000 (play money).</div>
+   <div class="dim" id="score" style="margin-top:6px"></div></div>
+  <div class="panel"><h3>Table talk</h3><div class="log" id="log"></div></div>
+  <div class="panel"><h3>Hand ranks</h3><div class="dim" style="font-size:13px">Straight flush &gt; Four of a kind &gt; Full house &gt; Flush &gt; Straight &gt; Three of a kind &gt; Two pair &gt; Pair &gt; High card</div>
+   <details><summary>Pot odds in one line</summary><p class="dim">Equity needed to call = call / (pot + call). If your win chance is higher, calling makes money long-term.</p></details></div>
+ </div>
+</div>
+<script src="logic.js"></script><script src="ui.js"></script>
+<script>
+const N = 6, SB = 10, BB = 20, START = 1000;
+const POS = [[50, 90], [13, 72], [13, 28], [50, 8], [87, 28], [87, 72]], POSL = ['BTN', 'SB', 'BB', 'UTG', 'HJ', 'CO'], AV = ['😎', '👩', '🧔', '🤠', '👵', '🧑‍🚀'];            // seat centres in % (0 = you)
+const NAMES = ['You', 'Ava', 'Ben', 'Cy', 'Dee', 'Eli'], COL = ['#7ccf8a', '#f48fb1', '#90caf9', '#ffcc80', '#ce93d8', '#80cbc4'], AGG = [1, 1, .85, 1.15, .95, 1.1];
+const players = NAMES.map((name, i) => ({ name, i, stack: START, hand: [], bet: 0, total: 0, folded: false, allin: false, acted: false }));
+let dealer = N - 1, board = [], deck = [], curBet = 0, minRaise = BB, turn = -1, reveal = false, winners = [], inHand = false, scoreN = 0, scoreOk = 0, resolveHuman = null, tagLine = '';
+const pot = () => players.reduce((s, p) => s + p.total, 0);
+const live = () => players.filter(p => !p.folded);
+const log = t => { $('log').innerHTML = t + '<br>' + $('log').innerHTML; };
+const lab = h => { const [a, b] = h, hi = Math.max(a.r, b.r), lo = Math.min(a.r, b.r), t = []; if (a.r === b.r) t.push('pocket pair'); else { if (a.s === b.s) t.push('suited'); if (hi - lo === 1) t.push('connected'); if (lo >= 10) t.push('two high cards'); } return t.join(', ') || 'weak offsuit cards'; };
+const handName = (h) => CATS[catOf(bestOf(h.hand.concat(board)))];
+
+function render() {
+  const centre = [50, 46], street = { 0: 'PRE-FLOP', 3: 'FLOP', 4: 'TURN', 5: 'RIVER' }[board.length];
+  const seats = players.map((p, i) => {
+    const [x, y] = POS[i], bx = x + (centre[0] - x) * .45, by = y + (centre[1] - y) * .45, me = i === 0, show = me || (reveal && !p.folded);
+    const cards = p.hand.length ? `<div class="hand ${me ? '' : 'sm'}">${p.hand.map(c => faceH(c, !show, !me)).join('')}</div>` : '';
+    const say = reveal && !p.folded && p.score != null ? CATS[catOf(p.score)] : p.last;
+    return `<div class="seat ${me ? 'hero' : ''} ${turn === i ? 'turn' : ''} ${p.folded ? 'fold' : ''} ${winners.includes(i) ? 'win' : ''}" style="left:${x}%;top:${y}%">
+      ${p.gain ? `<div class="gain">+$${p.gain}</div>` : ''}${cards}
+      <div class="who"><span class="av" style="background:${COL[i]}">${AV[i]}</span><span class="nm"><b>${p.name}</b> <i class="pos">${POSL[(i - dealer + N) % N]}</i><br><span class="mid">$${p.stack}</span></span>${p.allin ? '<span class="allin">ALL-IN</span>' : ''}</div>
+      ${say ? `<div class="say">${say}</div>` : ''}</div>
+      ${p.bet ? `<div class="bet" style="left:${bx}%;top:${by}%">${stackH(p.bet)}</div>` : ''}
+      ${i === dealer ? `<div class="dbtn" style="left:${x + (centre[0] - x) * .22 + (me ? 14 : 0)}%;top:${y + (centre[1] - y) * .22}%">D</div>` : ''}`;
+  }).join('');
+  const slots = [0, 1, 2, 3, 4].map(k => board[k] ? faceH(board[k]) : slotH()).join('');
+  $('table').innerHTML = `<div class="tag">HOLD'EM<i>♠ ♥ ♦ ♣</i><small>${street} · BLINDS ${SB}/${BB}</small></div><div class="deck"></div>
+    <div class="center"><div class="potl">POT $${pot()}</div>${towersH(pot())}<div class="hand brd">${slots}</div></div>${seats}`;
+  $('bank').textContent = '$' + players[0].stack;
+  $('score').textContent = scoreN ? `Decisions matching the coach: ${scoreOk}/${scoreN}` : '';
+}
+
+/* ---------- betting ---------- */
+const put = (p, x) => { p.stack -= x; p.bet += x; p.total += x; if (p.stack === 0) p.allin = true; };
+function apply(p, a) {
+  if (a.t === 'fold') { p.folded = true; p.last = 'Fold'; log(`${p.name} folds`); }
+  else if (a.t === 'call') { const x = Math.min(curBet - p.bet, p.stack); put(p, x); p.last = x ? `Call $${x}` : 'Check'; log(x ? `${p.name} calls $${x}` : `${p.name} checks`); }
+  else { const to = Math.min(a.to, p.bet + p.stack), x = to - p.bet; put(p, x);
+    if (to > curBet) { minRaise = Math.max(minRaise, to - curBet); p.last = `${curBet ? 'Raise to' : 'Bet'} $${to}`; log(`${p.name} ${curBet ? 'raises' : 'bets'} to $${to}`); curBet = to; players.forEach(q => { if (q !== p) q.acted = false; }); } }
+  p.acted = true;
+}
+async function betRound(first) {
+  let i = first;
+  for (;;) {
+    const lv = live(); if (lv.length === 1) return;
+    if (lv.filter(p => !p.allin).every(p => p.acted && p.bet === curBet)) return;
+    const p = players[i];
+    if (!p.folded && !p.allin && !(p.acted && p.bet === curBet)) { turn = i; render(); apply(p, i === 0 ? await human(p) : await bot(p)); turn = -1; render(); }
+    i = (i + 1) % N;
+  }
+}
+function opps() { return Math.min(live().length - 1, 2); }                           // equity vs up to 2 random hands keeps bots from folding everything
+async function bot(p) {
+  await sleep(750);
+  const k = opps(), fair = 1 / (k + 1), toCall = Math.min(curBet - p.bet, p.stack), need = toCall / (pot() + toCall), eq = equity(p.hand, board, 220, k), a = AGG[p.i], pre = board.length === 0;
+  const raiseTo = () => { const to = curBet + Math.max(minRaise, Math.round(pot() * .7 / 10) * 10); return to >= p.bet + p.stack * .8 ? p.bet + p.stack : to; };
+  if (toCall === 0) return eq > fair * 1.6 / a ? { t: 'raise', to: raiseTo() } : eq > fair * 1.3 / a && Math.random() < .35 ? { t: 'raise', to: raiseTo() } : { t: 'call' };
+  if (eq > fair * 1.9 / a && Math.random() < .65) return { t: 'raise', to: raiseTo() };
+  if (eq > need * (pre ? .6 : 1.05) / a) return { t: 'call' };
+  if (eq > need * .8 && Math.random() < .12) return { t: 'call' };
+  return { t: 'fold' };
+}
+/* ---------- you ---------- */
+async function human(p) {
+  const k = opps(), toCall = Math.min(curBet - p.bet, p.stack), need = toCall / (pot() + toCall), fair = 1 / (k + 1);
+  const eq = equity(p.hand, board, 700, k), maxTo = p.bet + p.stack, minTo = Math.min(curBet + minRaise, maxTo);
+  const rec = toCall === 0 ? (eq > fair * 1.5 ? 'raise' : 'call') : eq > fair * 1.8 ? 'raise' : eq > need ? 'call' : 'fold';
+  const made = board.length ? `You have <b>${handName(p)}</b>.` : `Your hand: <b>${lab(p.hand)}</b>.`;
+  $('coach').innerHTML = `${made}<br>Win chance ≈ <b>${(eq * 100).toFixed(0)}%</b> vs ${k} random hand${k > 1 ? 's' : ''}.` +
+    (toCall ? `<br>Call $${toCall} into a $${pot()} pot needs <b>${(need * 100).toFixed(0)}%</b>.` : '<br>Nobody has bet: checking is free.') +
+    `<br>Coach suggests: <b class="ok">${rec === 'raise' ? (toCall ? 'Raise' : 'Bet') : rec === 'call' ? (toCall ? 'Call' : 'Check') : 'Fold'}</b><br><span class="dim">Opponents who bet usually hold more than a random hand: be more careful when it's close.</span>`;
+  const half = Math.min(maxTo, curBet + Math.round((pot() + toCall) / 2 / 10) * 10), full = Math.min(maxTo, curBet + pot() + toCall);
+  $('ctl').innerHTML = `<button class="red" id="f">Fold</button><button class="pri" id="c">${toCall ? 'Call $' + toCall : 'Check'}</button>
+    <span>Raise to $<input type="number" id="r" value="${minTo}" min="${minTo}" max="${maxTo}" step="10"></span><button id="rb">${toCall ? 'Raise' : 'Bet'}</button>
+    <button data-to="${minTo}">Min</button><button data-to="${half}">½ pot</button><button data-to="${full}">Pot</button><button data-to="${maxTo}">All-in</button>`;
+  $('ctl').querySelectorAll('[data-to]').forEach(b => b.onclick = () => $('r').value = b.dataset.to);
+  const a = await new Promise(res => {
+    $('f').onclick = () => res({ t: 'fold' }); $('c').onclick = () => res({ t: 'call' });
+    $('rb').onclick = () => { const to = Math.max(Math.min(+$('r').value || minTo, maxTo), minTo); if (maxTo > curBet) res({ t: 'raise', to }); };
+    if (maxTo <= curBet) $('rb').disabled = true;
+  });
+  $('ctl').innerHTML = '';
+  scoreN++; if ((a.t === 'fold') === (rec === 'fold') && (a.t !== 'raise' || rec !== 'fold')) scoreOk++;
+  $('coach').innerHTML += `<br>${(a.t === 'fold') === (rec === 'fold') ? '<span class="ok">Your move matched the coach.</span>' : '<span class="no">Different from the coach: check the odds above.</span>'}`;
+  return a;
+}
+/* ---------- hand flow ---------- */
+async function playHand() {
+  reveal = false; winners = []; board = []; $('ctl').innerHTML = '';
+  players.forEach(p => { if (p.stack < BB) { p.stack = START; if (p.i === 0) log('You were out of chips: fresh $1000 (play money).'); } p.hand = []; p.last = ''; p.gain = 0; p.score = null; p.bet = p.total = 0; p.folded = p.allin = false; p.acted = false; });
+  dealer = (dealer + 1) % N; deck = shuffle(newDeck()); inHand = true;
+  const sb = (dealer + 1) % N, bb = (dealer + 2) % N;
+  put(players[sb], SB); put(players[bb], BB); curBet = BB; minRaise = BB; log(`--- New hand. ${players[sb].name} posts $${SB}, ${players[bb].name} posts $${BB} ---`);
+  players.forEach(p => p.hand = [deck.pop(), deck.pop()]); render();
+  await sleep(500); await betRound((bb + 1) % N);
+  for (const n of [3, 1, 1]) {
+    if (live().length <= 1) break;
+    players.forEach(p => { p.bet = 0; p.acted = false; p.last = ''; }); curBet = 0; minRaise = BB;
+    for (let i = 0; i < n; i++) board.push(deck.pop()); render(); await sleep(600);
+    if (live().filter(p => !p.allin).length > 1) await betRound((dealer + 1) % N);
+  }
+  showdown(); inHand = false; players.forEach(p => p.bet = 0); render();
+  $('ctl').innerHTML = '<button class="pri" id="next">Deal next hand</button>'; $('next').onclick = playHand;
+  $('coach').innerHTML = (winners.includes(0) ? '<span class="ok">You won this hand.</span>' : 'Hand over.') + '<br><span class="dim">Press Deal next hand when ready.</span>';
+}
+function showdown() {
+  const lv = live();
+  if (lv.length === 1) { lv[0].stack += pot(); lv[0].gain = pot(); winners = [lv[0].i]; log(`${lv[0].name} wins $${pot()} (everyone folded)`); return; }
+  reveal = true; lv.forEach(p => p.score = bestOf(p.hand.concat(board)));
+  const levels = [...new Set(players.map(p => p.total).filter(x => x > 0))].sort((a, b) => a - b); let prev = 0;
+  for (const L of levels) {                                                              // main pot + side pots
+    const amt = players.reduce((s, p) => s + Math.max(0, Math.min(p.total, L) - prev), 0), el = lv.filter(p => p.total >= L);
+    if (amt > 0 && el.length) { const best = Math.max(...el.map(p => p.score)), w = el.filter(p => p.score === best), share = Math.floor(amt / w.length);
+      w.forEach((p, j) => { const g = share + (j === 0 ? amt - share * w.length : 0); p.stack += g; p.gain = (p.gain || 0) + g; if (!winners.includes(p.i)) winners.push(p.i); });
+      log(`${w.map(p => p.name).join(' & ')} win${w.length > 1 ? '' : 's'} $${amt} with ${CATS[catOf(best)]}`); }
+    prev = L;
+  }
+}
+$('ctl').innerHTML = '<button class="pri" id="next">Deal</button>'; $('next').onclick = playHand; render();
+</script>

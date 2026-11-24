@@ -1,0 +1,73 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Roulette Table - Casino Coach</title>
+<link rel="stylesheet" href="table.css">
+<div class="top"><a href="index.html">&larr; Casino Coach</a><h1>European Roulette</h1><span class="sp"></span><a href="index.html#rl">Lessons &amp; drills</a><span>Bankroll <span class="bankv" id="bank"></span></span></div>
+<div class="wrap">
+ <div class="main">
+  <div class="rail feltbg" style="border-radius:20px">
+   <div class="rl"><div class="wheel" id="wheel"></div><div id="grid" style="display:contents"></div></div>
+   <div class="hist" id="hist"></div>
+  </div>
+  <div class="bar" id="chips"></div>
+  <div class="bar"><button class="pri" id="spin">SPIN</button><button id="undo">Undo</button><button id="clear">Clear bets</button><span id="res"></span></div>
+ </div>
+ <div class="side">
+  <div class="panel"><h3>Coach</h3><div id="coach">Pick a chip, then tap numbers or bets on the table. Press SPIN when ready.</div></div>
+  <div class="panel"><h3>Session</h3><div id="sess" class="dim"></div></div>
+  <div class="panel"><h3>Quick rules</h3><div class="dim">One green 0, so 37 pockets. Straight number pays 35:1, dozens/columns 2:1, red/black/odd/even/low/high 1:1. Every bet has the same 2.7% house edge. No system beats it.</div></div>
+ </div>
+</div>
+<script src="logic.js"></script><script src="ui.js"></script>
+<script>
+// table layout (data-b = named outside bet, data-n = single number)
+function grid() {
+  let h = '<div class="tbl"><div class="cell g" data-n="0" style="grid-row:1/4;grid-column:1">0<i class="bet"></i></div>';
+  [[3, 'Column 3'], [2, 'Column 2'], [1, 'Column 1']].forEach(([off, col], r) => {
+    for (let k = 1; k <= 12; k++) { const x = 3 * k - 3 + off; h += `<div class="cell ${RED.has(x) ? 'rd' : 'bk'}" data-n="${x}" style="grid-row:${r + 1};grid-column:${k + 1}">${x}<i class="bet"></i></div>`; }
+    h += `<div class="cell o" data-b="${col}" style="grid-row:${r + 1};grid-column:14">2:1<i class="bet"></i></div>`; });
+  ['1st dozen', '2nd dozen', '3rd dozen'].forEach((d, i) => h += `<div class="cell o" data-b="${d}" style="grid-row:4;grid-column:${2 + 4 * i} / span 4">${d}<i class="bet"></i></div>`);
+  [['Low 1-18', 'o', '1-18'], ['Even', 'o', 'EVEN'], ['Red', 'rd', '◆'], ['Black', 'bk', '◆'], ['Odd', 'o', 'ODD'], ['High 19-36', 'o', '19-36']].forEach(([b, c, l], i) => h += `<div class="cell ${c}" data-b="${b}" style="grid-row:5;grid-column:${2 + 2 * i} / span 2">${l}<i class="bet"></i></div>`);
+  return h + '</div>';
+}
+$('wheel').innerHTML = wheelSVG(); $('grid').innerHTML = grid(); $('chips').innerHTML = chipBtns([1, 5, 25, 100]);
+const keyOf = el => el.dataset.b || 'n' + el.dataset.n;
+const payOf = k => k[0] === 'n' ? 35 : BETS[k][0];
+const winOf = k => k[0] === 'n' ? (x => x === +k.slice(1)) : BETS[k][1];
+let chip = 5, bank = 1000, bets = {}, order = [], rot = 0, spins = 0, net = 0, staked = 0, hist = [], busy = false;
+const setChip = v => { chip = v; document.querySelectorAll('.chipb').forEach(b => b.classList.toggle('on', +b.dataset.v === v)); };
+document.querySelectorAll('.chipb').forEach(b => b.onclick = () => setChip(+b.dataset.v)); setChip(5);
+const total = () => Object.values(bets).reduce((s, x) => s + x, 0);
+function paint() {
+  $('bank').textContent = '$' + bank;
+  document.querySelectorAll('.cell').forEach(c => { const v = bets[keyOf(c)], i = c.querySelector('.bet'); i.className = 'bet' + (v ? ' on' : ''); i.textContent = v || ''; });
+  $('spin').disabled = busy || !total(); $('undo').disabled = busy || !order.length; $('clear').disabled = busy || !total();
+  $('hist').innerHTML = hist.slice(0, 14).map(x => `<span class="${x === 0 ? 'g' : RED.has(x) ? 'rd' : 'bk'}">${x}</span>`).join('');
+  const t = total();
+  if (!busy && t) { let cov = 0; for (let x = 0; x <= 36; x++) if (Object.keys(bets).some(k => winOf(k)(x))) cov++;
+    $('coach').innerHTML = `You have <b>$${t}</b> on the table. Your bets win on <b>${cov}</b> of 37 numbers (${(cov / 37 * 100).toFixed(1)}%). Expected loss this spin: <b class="no">-$${(t / 37).toFixed(2)}</b> (2.70% of your stake), whichever bets you pick.`; }
+  $('sess').innerHTML = spins ? `${spins} spins · staked $${staked} · net <b class="${net >= 0 ? 'ok' : 'no'}">${net >= 0 ? '+' : ''}$${net}</b><br>Expected net at 2.7% edge: <b>-$${(staked / 37).toFixed(2)}</b>. The longer you play, the closer you get to it.` : 'No spins yet.';
+}
+$('grid').onclick = e => { if (busy) return; const c = e.target.closest('[data-b],[data-n]'); if (!c) return; if (chip > bank) return; const k = keyOf(c); bank -= chip; bets[k] = (bets[k] || 0) + chip; order.push([k, chip]); paint(); };
+$('undo').onclick = () => { const [k, v] = order.pop(); bets[k] -= v; if (!bets[k]) delete bets[k]; bank += v; paint(); };
+$('clear').onclick = () => { bank += total(); bets = {}; order = []; paint(); };
+$('spin').onclick = async () => {
+  busy = true; paint(); $('res').innerHTML = ''; $('coach').textContent = 'No more bets...';
+  const x = Math.floor(Math.random() * 37), idx = WHEEL.indexOf(x), step = 360 / 37;
+  rot = Math.ceil((rot + 1) / 360) * 360 + 1800 - idx * step;                       // pocket ends under the ball at the top
+  $('wheel').querySelector('.wh').style.transform = `rotate(${rot}deg)`;
+  const bl = $('wheel').querySelector('.bl'); bl.style.transform = `rotate(${-(2160 + Math.round(rot / 360) * 360)}deg)`;
+  $('wheel').querySelector('.bc').setAttribute('cy', 10);
+  await sleep(4300); $('wheel').querySelector('.bc').setAttribute('cy', 21);        // ball drops into the pocket
+  await sleep(600);
+  let won = 0, st = total();
+  for (const [k, v] of Object.entries(bets)) if (winOf(k)(x)) won += v * (payOf(k) + 1);
+  bank += won; const d = won - st; net += d; staked += st; spins++; hist.unshift(x);
+  $('res').innerHTML = `<span class="num ${x === 0 ? 'g' : RED.has(x) ? 'rd' : 'bk'}">${x}</span> <b class="${d >= 0 ? 'ok' : 'no'}">${d >= 0 ? '+' : ''}$${d}</b>`;
+  $('coach').innerHTML = `Result <b>${x}</b> (${x === 0 ? 'green, the house number' : RED.has(x) ? 'red' : 'black'}). You staked $${st} and got back $${won}: <b class="${d >= 0 ? 'ok' : 'no'}">${d >= 0 ? '+' : ''}$${d}</b>.<br><span class="dim">Expected result was -$${(st / 37).toFixed(2)}. A win now is luck, not skill.</span>`;
+  bets = {}; order = []; busy = false;
+  if (bank < 1) { bank = 1000; $('coach').innerHTML += '<br><span class="mid">Out of chips. Fresh $1000 (play money).</span>'; }
+  const c = $('coach').innerHTML; paint(); $('coach').innerHTML = c;
+};
+paint();
+</script>

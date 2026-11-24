@@ -1,0 +1,346 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Casino Coach</title>
+<style>
+  :root{--bg:#111;--card:#1b1b1d;--line:#2c2c30;--fg:#eee;--dim:#9a9aa2;--acc:#7ccf8a;--bad:#ff8a80;--mid:#ffd166}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui}
+  header{position:sticky;top:0;z-index:5;background:#0c0c0d;border-bottom:1px solid var(--line);padding:8px 12px;display:flex;gap:12px;align-items:center}
+  header a{color:var(--acc);text-decoration:none;font-weight:600;white-space:nowrap}
+  .bar{flex:1;height:8px;background:#2a2a2e;border-radius:4px;overflow:hidden}.bar i{display:block;height:100%;background:var(--acc)}
+  main{max-width:760px;margin:0 auto;padding:8px 14px 70px}
+  h1{font-size:24px;margin:12px 0 4px} h2{font-size:21px;margin:24px 0 6px} h3{margin:14px 0 4px;font-size:17px;color:var(--acc)}
+  p{margin:6px 0} ul{margin:6px 0;padding-left:22px}
+  .dim{color:var(--dim)} .ok{color:var(--acc);font-weight:600} .no{color:var(--bad);font-weight:600} .mid{color:var(--mid);font-weight:600}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0}
+  .stage{cursor:pointer}.stage:hover{border-color:var(--acc)}
+  .tip{border-left:4px solid var(--acc);background:#15201a;padding:8px 12px;border-radius:6px;margin:10px 0}
+  .warn{border-left:4px solid #e0a030;background:#241c0e;padding:8px 12px;border-radius:6px;margin:10px 0}
+  table{border-collapse:collapse;width:100%;font-size:14.5px} td,th{border:1px solid var(--line);padding:5px 8px;text-align:left} th{background:#18181a}
+  code{background:#26262a;padding:1px 5px;border-radius:4px}
+  button{font-size:15px;padding:9px 13px;border-radius:8px;border:1px solid #444;background:#2a2a2e;color:#eee;cursor:pointer}
+  button:disabled{opacity:.35;cursor:default} button.pri{background:var(--acc);color:#111;border-color:var(--acc);font-weight:600}
+  input,select{font-size:15px;padding:8px;border-radius:8px;border:1px solid #444;background:#222;color:#eee;width:90px}
+  select{width:auto}
+  .row{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;align-items:center}
+  .cards{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;min-height:64px}
+  .pc{background:#fafafa;color:#111;border-radius:6px;padding:6px 8px;font:700 20px/1.1 system-ui;min-width:46px;text-align:center;border:1px solid #999}
+  .pc.r{color:#c62828}.pc.back{background:#2d4a8a;color:#2d4a8a}
+  .num{display:inline-block;width:64px;height:64px;line-height:64px;text-align:center;border-radius:50%;font:700 26px system-ui;margin:4px}
+  .g{background:#0a7d2c}.rd{background:#c62828}.bk{background:#222;border:1px solid #555}
+  .fb{min-height:24px;margin:6px 0}
+  .pc{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:50px;height:72px;padding:0;min-width:0;line-height:1;box-shadow:0 2px 4px #0008}
+  .pc b{font-size:20px}.pc i{font-style:normal;font-size:26px}
+  .pc.back{background:repeating-linear-gradient(45deg,#2d4a8a 0 6px,#3b5fae 6px 12px);border:2px solid #fff}
+  .pc.slot{background:#0003;border:2px dashed #fff5;box-shadow:none}
+  .felt{background:radial-gradient(ellipse at center,#18854c,#0b4a2a);border:6px solid #5a3a1a;border-radius:18px;color:#fff}
+  .felt .dim{color:#cfe8d6}.felt h3{color:#ffd166}
+  .chips{display:inline-flex;align-items:center;margin:0 6px}
+  .chip{width:22px;height:22px;border-radius:50%;border:3px dashed #fff;margin-left:-8px;box-shadow:0 1px 3px #000a}
+  .chip.k{background:#222}.chip.g{background:#1b8a3a}.chip.r{background:#c62828}.chip.w{background:#ddd;border-color:#888}
+  .oval{position:relative;background:radial-gradient(ellipse at center,#18854c,#0b4a2a);border:8px solid #5a3a1a;border-radius:50%/38%;padding:18px 10px;text-align:center;color:#fff;box-shadow:inset 0 0 40px #0008}
+  .oval .cards{justify-content:center;min-height:0}
+  .seat{display:inline-block;background:#0007;border:2px solid #ffd16666;border-radius:14px;padding:6px 12px;margin:4px}
+  .pot{margin:6px 0;font-weight:700;color:#ffd166}
+  .dbtn{display:inline-block;width:24px;height:24px;line-height:24px;border-radius:50%;background:#fff;color:#111;font-weight:700;font-size:13px;margin-left:6px}
+  .lbl{font-size:11px;color:#cfe8d6;display:flex;justify-content:center;gap:4px}
+  .rw{display:flex;gap:14px;flex-wrap:wrap;align-items:center;justify-content:center}
+  .wheel{width:240px;max-width:100%;position:relative}.wheel svg{width:100%;display:block}
+  .wh{transform-origin:100px 100px;transition:transform 3s cubic-bezier(.15,.7,.2,1)}
+  .tbl{display:grid;grid-template-columns:repeat(14,minmax(0,1fr));gap:2px;font-size:12px;flex:1;min-width:300px}
+  .cell{text-align:center;padding:9px 0;border:1px solid #fff6;cursor:pointer;color:#fff;user-select:none}
+  .cell.rd{background:#c62828}.cell.bk{background:#111}.cell.g{background:#0a7d2c;display:flex;align-items:center;justify-content:center}.cell.o{background:#0b4a2a}
+  .cell:hover{filter:brightness(1.3)}.sel{outline:3px solid #ffd166;position:relative;z-index:1}
+  footer{color:var(--dim);font-size:13px;text-align:center;margin-top:30px}
+</style>
+<header><a href="/">&larr; Home</a><div class="bar"><i id="pb" style="width:0"></i></div><span class="dim" id="pt"></span></header>
+<main id="app"></main>
+<script src="logic.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const el = (h, cls = '') => { const d = document.createElement('div'); if (cls) d.className = cls; d.innerHTML = h; return d; };
+const pick = a => a[Math.floor(Math.random() * a.length)];
+let PROG = {}; try { PROG = JSON.parse(localStorage.casinoProg || '{}'); } catch (e) {}
+const pass = id => { PROG[id] = 1; try { localStorage.casinoProg = JSON.stringify(PROG); } catch (e) {} bar(); };
+const cardH = (c, back) => back ? '<span class="pc back"></span>' : `<span class="pc ${c.s === 1 || c.s === 2 ? 'r' : ''}"><b>${c.r === 10 ? '10' : RANKS[c.r - 2]}</b><i>${SUITS[c.s]}</i></span>`;
+const chipsH = n => { let h = '', r = n; for (const [v, c] of [[100, 'k'], [25, 'g'], [5, 'r'], [1, 'w']]) { const q = Math.floor(r / v); r -= q * v; for (let i = 0; i < Math.min(q, 4); i++) h += `<span class="chip ${c}"></span>`; } return `<span class="chips">${h}</span>`; };
+const WHEEL = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26]; // real European order
+function wheelSVG() {
+  const st = 360 / 37, P = (r, a) => `${(100 + r * Math.sin(a * Math.PI / 180)).toFixed(2)},${(100 - r * Math.cos(a * Math.PI / 180)).toFixed(2)}`;
+  const sec = WHEEL.map((n, i) => { const a0 = (i - 0.5) * st, a1 = (i + 0.5) * st, am = i * st;
+    return `<path d="M${P(60, a0)} L${P(94, a0)} A94 94 0 0 1 ${P(94, a1)} L${P(60, a1)} A60 60 0 0 0 ${P(60, a0)}Z" fill="${n === 0 ? '#0a7d2c' : RED.has(n) ? '#c62828' : '#151515'}" stroke="#d4af37" stroke-width=".6"/><text x="${P(78, am).split(',')[0]}" y="${P(78, am).split(',')[1]}" fill="#fff" font-size="7" text-anchor="middle" dominant-baseline="central" transform="rotate(${am.toFixed(2)} ${P(78, am).replace(',', ' ')})">${n}</text>`; }).join('');
+  return `<svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="99" fill="#5a3a1a"/><g class="wh">${sec}<circle cx="100" cy="100" r="58" fill="#8a6a3a" stroke="#d4af37"/><circle cx="100" cy="100" r="14" fill="#d4af37"/><path d="M100 86V114M86 100H114" stroke="#7a5a1a" stroke-width="3"/></g><circle cx="100" cy="9" r="5" fill="#fff" stroke="#999"/></svg>`;
+}
+function rlGrid() {
+  let h = '<div class="tbl"><div class="cell g" data-n="0" style="grid-row:1/4;grid-column:1">0</div>';
+  [[3, 'Column 3'], [2, 'Column 2'], [1, 'Column 1']].forEach(([off, col], r) => {
+    for (let k = 1; k <= 12; k++) { const n = 3 * k - 3 + off; h += `<div class="cell ${RED.has(n) ? 'rd' : 'bk'}" data-n="${n}" style="grid-row:${r + 1};grid-column:${k + 1}">${n}</div>`; }
+    h += `<div class="cell o" data-b="${col}" style="grid-row:${r + 1};grid-column:14">2:1</div>`; });
+  ['1st dozen', '2nd dozen', '3rd dozen'].forEach((d, i) => h += `<div class="cell o" data-b="${d}" style="grid-row:4;grid-column:${2 + 4 * i} / span 4">${d}</div>`);
+  [['Low 1-18', 'o'], ['Even', 'o'], ['Red', 'rd'], ['Black', 'bk'], ['Odd', 'o'], ['High 19-36', 'o']].forEach(([b, c], i) => h += `<div class="cell ${c}" data-b="${b}" style="grid-row:5;grid-column:${2 + 2 * i} / span 2">${b.split(' ')[0]}</div>`);
+  return h + '</div>';
+}
+const cardsH = (a, hideSecond) => a.map((c, i) => cardH(c, hideSecond && i === 1)).join('');
+const DRILLS = { bj: ['bj_strat', 'bj_count'], poker: ['pk_rank', 'pk_odds'], rl: ['rl_pay', 'rl_sim'] };
+function bar() {
+  const all = Object.values(DRILLS).flat(), n = all.filter(d => PROG[d]).length;
+  $('pb').style.width = (100 * n / all.length) + '%'; $('pt').textContent = n + '/' + all.length + ' drills';
+}
+
+/* ---------- generic streak drill: make() -> {html, opts:[[label,value]], answer, why} ---------- */
+function drill(host, id, title, need, make) {
+  host.appendChild(el(`<h3>${title}</h3><p class="dim">Get <b>${need}</b> right in a row to pass ${PROG[id] ? '<span class="ok">(passed)</span>' : ''}</p><div class="q"></div><div class="row opts"></div><div class="fb"></div><div class="dim st"></div>`, 'card'));
+  const card = host.lastChild, q = card.querySelector('.q'), o = card.querySelector('.opts'), fb = card.querySelector('.fb'), st = card.querySelector('.st');
+  let streak = 0;
+  const next = () => {
+    const x = make(); q.innerHTML = x.html; o.innerHTML = ''; st.textContent = 'Streak: ' + streak + '/' + need;
+    x.opts.forEach(([lab, val]) => { const b = document.createElement('button'); b.textContent = lab; b.onclick = () => {
+      const good = val === x.answer; streak = good ? streak + 1 : 0;
+      fb.innerHTML = (good ? '<span class="ok">Correct.</span> ' : '<span class="no">Wrong.</span> ') + x.why;
+      if (streak >= need) { pass(id); fb.innerHTML += ' <span class="ok">Drill passed!</span>'; streak = 0; }
+      st.textContent = 'Streak: ' + streak + '/' + need;
+      o.querySelectorAll('button').forEach(b => b.disabled = true);
+      const nb = document.createElement('button'); nb.textContent = 'Next'; nb.className = 'pri'; nb.onclick = () => { fb.innerHTML = ''; next(); }; o.appendChild(nb);
+    }; o.appendChild(b); });
+  };
+  next();
+}
+
+/* ================= BLACKJACK ================= */
+const PAGES = { bj: 'blackjack.html', poker: 'poker.html', rl: 'roulette.html' };
+const NAV = `<button class="pri" onclick="location.href=PAGES[location.hash.slice(1)]">🎰 Open full table</button> ` + ['pl|▶ Quick practice', 'ln|📖 Learn', 'tr|🎯 Train'].map(x => { const [i, l] = x.split('|'); return `<button class="pri" onclick="document.getElementById('${i}').scrollIntoView({behavior:'smooth'})">${l}</button>`; }).join(' ');
+const MOVE = { H: 'Hit', S: 'Stand', D: 'Double', P: 'Split' };
+function bjPage(app) {
+  app.innerHTML = `<p><a href="#" style="color:var(--acc)">&larr; All games</a></p><h1>Blackjack</h1>
+  <p class="dim">Beat the dealer without going over 21. It's the one casino game where skill matters: perfect play cuts the house edge to about 0.5%.</p>
+  ${NAV}<h2 id="pl">Play with the coach</h2><div id="bjplay"></div>
+  <h2 id="ln">Learn</h2>
+  <div class="card"><h3>1. The rules in 30 seconds</h3><ul>
+   <li>Cards 2-10 = face value, J/Q/K = 10, Ace = 1 or 11 (a hand with an ace counted as 11 is <b>soft</b>).</li>
+   <li>Closest to 21 without busting wins. Dealer must hit to 16 and stand on all 17s.</li>
+   <li>Blackjack (Ace + 10-value) pays 3:2. Other wins pay 1:1. Tie = push.</li>
+   <li><b>Hit</b> = take a card, <b>Stand</b> = stop, <b>Double</b> = double your bet, get one card, <b>Split</b> = a pair becomes two hands.</li></ul></div>
+  <div class="card"><h3>2. Basic strategy: the idea</h3>
+   <p>Every hand has one mathematically best move for each dealer upcard. The dealer's <b>2-6 are weak</b> (they bust often) and <b>7-A are strong</b>.</p>
+   <ul><li>Dealer weak: don't risk busting; stand on 12-16 (12 only vs 4-6), double 9/10/11.</li>
+   <li>Dealer strong: you must hit stiff hands (12-16) because standing will probably lose.</li>
+   <li>Always split Aces and 8s. Never split 10s or 5s.</li></ul>
+   <div class="tip">Rule used here: 6 decks, dealer stands on soft 17, double after split, one split only, no surrender.</div></div>
+  <div class="card"><h3>3. Card counting (Hi-Lo)</h3>
+   <p>Low cards (2-6) <b>+1</b>, middle (7-9) <b>0</b>, high (10-A) <b>-1</b>. Keep a running total. A high count means the shoe is rich in tens and aces, which favours the player. <b>True count = running count ÷ decks left</b>; raise bets when it's +2 or more.</p>
+   <div class="warn">Counting is legal but casinos can ban you. Real edge is small (~1%) and needs a big bankroll. Treat it as a skill to understand.</div></div>
+  <h2 id="tr">Training</h2><div id="bjdr"></div>`;
+  bjTable($('bjplay')); const dr = $('bjdr');
+  drill(dr, 'bj_strat', 'Strategy drill', 10, () => {
+    let h, up, canD = true, canS = true;
+    do { h = [pick(newDeck()), pick(newDeck())]; } while (bjVal(h).total > 20);
+    up = pv(pick(newDeck()));
+    const m = bjAdvice(h, up, canD, canS), { total, soft } = bjVal(h);
+    return { html: `<p>Dealer shows:</p><div class="cards">${cardH({ r: up === 11 ? 14 : up, s: 0 })}</div><p>You hold (${soft ? 'soft ' : ''}${total}):</p><div class="cards">${cardsH(h)}</div>`,
+      opts: Object.entries(MOVE).map(([k, v]) => [v, k]), answer: m,
+      why: `Basic strategy: <b>${MOVE[m]}</b>. Dealer ${up <= 6 ? 'is weak (likely to bust)' : 'is strong'}.` };
+  });
+  bjCountDrill(dr);
+}
+function bjCountDrill(host) {
+  host.appendChild(el(`<h3>Counting drill</h3><p class="dim">Flash 12 cards one at a time, then type the running count. Pass 3 times. ${PROG.bj_count ? '<span class="ok">(passed)</span>' : ''}</p><div class="cards cc"></div><div class="row"><button class="go pri">Start</button><button class="nx" disabled>Next card</button><input class="ans" type="number" placeholder="count" disabled><button class="ck" disabled>Check</button></div><div class="fb"></div><div class="dim ct"></div>`, 'card'));
+  const c = host.lastChild, cc = c.querySelector('.cc'), go = c.querySelector('.go'), nx = c.querySelector('.nx'), ans = c.querySelector('.ans'), ck = c.querySelector('.ck'), fb = c.querySelector('.fb'), ct = c.querySelector('.ct');
+  let seq = [], i = 0, wins = 0;
+  go.onclick = () => { seq = shuffle(newDeck()).slice(0, 12); i = 0; cc.innerHTML = ''; fb.textContent = ''; ans.value = ''; ans.disabled = ck.disabled = true; nx.disabled = false; go.disabled = true; nx.click(); };
+  nx.onclick = () => { cc.innerHTML = cardH(seq[i]); i++; if (i >= seq.length) { nx.disabled = true; ans.disabled = ck.disabled = false; nx.textContent = 'Next card'; cc.innerHTML += ' <span class="dim">done, enter count</span>'; } };
+  ck.onclick = () => { const t = seq.reduce((s, x) => s + hiLo(x), 0), ok = +ans.value === t; wins = ok ? wins + 1 : 0;
+    fb.innerHTML = (ok ? '<span class="ok">Correct!</span> ' : '<span class="no">Wrong.</span> ') + 'Cards: ' + cardsH(seq) + ' Count = <b>' + t + '</b>';
+    ct.textContent = 'In a row: ' + wins + '/3'; if (wins >= 3) { pass('bj_count'); fb.innerHTML += ' <span class="ok">Drill passed!</span>'; wins = 0; }
+    go.disabled = false; go.textContent = 'Again'; ans.disabled = ck.disabled = true; };
+}
+function bjTable(host) {
+  host.appendChild(el(`<div class="row"><span>Bankroll: <b class="bank"></b></span><span>Bet: <input class="bet" type="number" value="10" min="1"></span><button class="deal pri">Deal</button><label class="dim"><input class="showc" type="checkbox" style="width:auto"> show count</label></div>
+  <div class="dim cnt"></div><p>Dealer:</p><div class="cards dl"></div><p class="hdr">You:</p><div class="hands"></div>
+  <div class="row acts"></div><div class="fb"></div><div class="dim sc"></div>`, 'card felt'));
+  const c = host.lastChild, Q = s => c.querySelector(s);
+  let shoe = [], count = 0, bank = 1000, S = null, n = 0, ok = 0;
+  const draw = hidden => { if (shoe.length < 52) { shoe = shuffle([].concat(...Array(6).fill(0).map(newDeck))); count = 0; } const x = shoe.pop(); if (!hidden) count += hiLo(x); return x; };
+  const fb = h => Q('.fb').innerHTML = h;
+  function paint() {
+    Q('.bank').textContent = '$' + bank;
+    const dec = Math.max(shoe.length / 52, 0.5);
+    Q('.cnt').textContent = Q('.showc').checked ? `Running count ${count}, true count ${(count / dec).toFixed(1)} (${dec.toFixed(1)} decks left)` : 'Count hidden. Try tracking it yourself, then tick the box.';
+    Q('.sc').textContent = n ? `Coach score: ${ok}/${n} decisions matched basic strategy (${Math.round(100 * ok / n)}%)` : '';
+    if (!S) return;
+    Q('.dl').innerHTML = cardsH(S.dealer, !S.over);
+    Q('.hands').innerHTML = S.hands.map((h, i) => `<div class="cards" style="${i === S.i && !S.over ? 'outline:2px solid var(--acc);padding:4px;border-radius:8px' : ''}">${cardsH(h.cards)}<span class="dim">&nbsp;<b>${bjVal(h.cards).total}</b> ${chipsH(h.bet)} $${h.bet}${h.res ? ' · ' + h.res : ''}</span></div>`).join('');
+    const h = S.hands[S.i]; Q('.acts').innerHTML = '';
+    if (!S.over) { const a = acts(h); [['H', 'Hit', 1], ['S', 'Stand', 1], ['D', 'Double', a.d], ['P', 'Split', a.p]].forEach(([k, l, en]) => { const b = document.createElement('button'); b.textContent = l; b.disabled = !en; b.onclick = () => act(k); Q('.acts').appendChild(b); });
+      const hb = document.createElement('button'); hb.textContent = 'Hint'; hb.onclick = () => fb('Coach suggests: <b>' + MOVE[bjAdvice(h.cards, up(), a.d, a.p)] + '</b>'); Q('.acts').appendChild(hb); }
+  }
+  const up = () => pv(S.dealer[0]);
+  const acts = h => ({ d: h.cards.length === 2 && bank >= h.bet, p: S.hands.length === 1 && h.cards.length === 2 && pv(h.cards[0]) === pv(h.cards[1]) && bank >= h.bet });
+  Q('.showc').onchange = paint;
+  Q('.deal').onclick = () => {
+    const b = Math.max(1, Math.floor(+Q('.bet').value || 0)); if (b > bank) { if (bank < 1) { bank = 1000; } else return fb('<span class="no">Bet exceeds bankroll.</span>'); }
+    bank -= b; fb('');
+    S = { hands: [{ cards: [draw(), draw()], bet: b }], i: 0, over: false, dealer: [draw(), draw(true)] };
+    const pb = bjVal(S.hands[0].cards).total === 21, dbj = bjVal(S.dealer).total === 21;
+    if (pb || dbj) { settle(true); } paint();
+  };
+  function act(k) {
+    const h = S.hands[S.i], a = acts(h), rec = bjAdvice(h.cards, up(), a.d, a.p);
+    n++; if (k === rec) { ok++; fb(`<span class="ok">Good: ${MOVE[k]}.</span>`); } else fb(`<span class="no">Basic strategy says ${MOVE[rec]}, not ${MOVE[k]}.</span> Dealer ${up() <= 6 ? 'is weak (2-6): avoid busting' : 'is strong (7-A): you must improve'}.`);
+    if (k === 'H') { h.cards.push(draw()); if (bjVal(h.cards).total >= 21) h.done = true; }
+    else if (k === 'S') h.done = true;
+    else if (k === 'D') { bank -= h.bet; h.bet *= 2; h.cards.push(draw()); h.done = true; }
+    else if (k === 'P') { bank -= h.bet; const [x, y] = h.cards, aces = x.r === 14;
+      S.hands = [{ cards: [x, draw()], bet: h.bet, done: aces, split: 1 }, { cards: [y, draw()], bet: h.bet, done: aces, split: 1 }]; S.i = 0; }
+    while (S.i < S.hands.length && S.hands[S.i].done) S.i++;
+    if (S.i >= S.hands.length) settle(false); paint();
+  }
+  function settle(natural) {
+    S.over = true; count += S.dealer.reduce((s, x, j) => s + (j === 1 ? hiLo(x) : 0), 0);   // reveal hole card to the count
+    const live = S.hands.some(h => bjVal(h.cards).total <= 21);
+    while (!natural && live && bjVal(S.dealer).total < 17) S.dealer.push(draw());
+    const dt = bjVal(S.dealer).total;
+    S.hands.forEach(h => { const t = bjVal(h.cards).total, bj = natural && t === 21 && h.cards.length === 2 && !h.split, dbj = natural && dt === 21;
+      if (t > 21) h.res = '<span class="no">bust</span>';
+      else if (bj && !dbj) { bank += h.bet * 2.5; h.res = '<span class="ok">blackjack 3:2</span>'; }
+      else if (dbj && !bj) h.res = '<span class="no">dealer blackjack</span>';
+      else if (dt > 21 || t > dt) { bank += h.bet * 2; h.res = '<span class="ok">win</span>'; }
+      else if (t === dt) { bank += h.bet; h.res = '<span class="mid">push</span>'; }
+      else h.res = '<span class="no">lose</span>'; });
+    bank = Math.round(bank * 100) / 100;
+  }
+  paint();
+}
+
+/* ================= POKER ================= */
+function pkPage(app) {
+  app.innerHTML = `<p><a href="#" style="color:var(--acc)">&larr; All games</a></p><h1>Poker (Texas Hold'em)</h1>
+  <p class="dim">You play against people, so skill dominates luck over time. The core skill is deciding whether a bet is worth calling.</p>
+  ${NAV}<h2 id="pl">Practice hand with the coach</h2><div id="pkplay"></div>
+  <h2 id="ln">Learn</h2>
+  <div class="card"><h3>1. How a hand works</h3><ul>
+   <li>Each player gets 2 private cards. 5 community cards come in stages: <b>flop</b> (3), <b>turn</b> (1), <b>river</b> (1), with betting rounds between.</li>
+   <li>Your hand = best 5 cards from your 2 + the 5 on the board.</li>
+   <li>Actions: <b>fold</b>, <b>call</b> (match the bet), <b>raise</b>, <b>check</b> (no bet to face).</li></ul></div>
+  <div class="card"><h3>2. Hand rankings (strongest first)</h3>
+   <table><tr><th>#</th><th>Hand</th><th>Example</th><th>Chance in 7 cards</th></tr>
+   <tr><td>1</td><td>Straight flush</td><td>9♥8♥7♥6♥5♥</td><td>0.03%</td></tr><tr><td>2</td><td>Four of a kind</td><td>K K K K 3</td><td>0.17%</td></tr>
+   <tr><td>3</td><td>Full house</td><td>Q Q Q 8 8</td><td>2.6%</td></tr><tr><td>4</td><td>Flush</td><td>five hearts</td><td>3.0%</td></tr>
+   <tr><td>5</td><td>Straight</td><td>5 6 7 8 9</td><td>4.6%</td></tr><tr><td>6</td><td>Three of a kind</td><td>7 7 7 K 2</td><td>4.8%</td></tr>
+   <tr><td>7</td><td>Two pair</td><td>J J 4 4 A</td><td>23.5%</td></tr><tr><td>8</td><td>Pair</td><td>10 10 A 7 3</td><td>43.8%</td></tr><tr><td>9</td><td>High card</td><td>A K 9 5 2</td><td>17.4%</td></tr></table></div>
+  <div class="card"><h3>3. Pot odds and equity: the key idea</h3>
+   <p><b>Equity</b> = your chance to win the hand. <b>Pot odds</b> = the price the pot offers you.</p>
+   <p>Pot is $100, villain bets $50. You pay $50 to win $150, so you need <code>50 / (100 + 50 + 50) = 25%</code> equity to break even.</p>
+   <div class="tip"><b>Call when equity > required equity.</b> Quick equity: count your <b>outs</b> (cards that improve you to the best hand). Chance ≈ outs × 4% on the flop (two cards to come), outs × 2% on the turn. Flush draw = 9 outs ≈ 36% on the flop. Open-ended straight draw = 8 outs ≈ 32%.</div>
+   <div class="warn">The trainer below measures equity against a <b>random</b> hand. A real opponent who bets usually has a stronger range, so be more willing to fold when the math is close.</div></div>
+  <h2 id="tr">Training</h2><div id="pkdr"></div>`;
+  const dr = $('pkdr');
+  drill(dr, 'pk_rank', 'Hand ranking drill', 8, () => {
+    const d = shuffle(newDeck()), h = d.slice(0, 7), s = bestOf(h), c = catOf(s);
+    return { html: `<p>What is the best 5-card hand?</p><div class="cards">${cardsH(h)}</div>`, opts: CATS.map((n, i) => [n, i]).reverse(), answer: c, why: `Best hand: <b>${CATS[c]}</b>.` };
+  });
+  pkOdds(dr, $('pkplay'));
+}
+function pkOdds(drHost, playHost) {
+  const build = (host, id, title, need) => {
+    host.appendChild(el(`<h3>${title}</h3><p class="dim">${need ? `Make <b>${need}</b> correct calls in a row to pass ${PROG[id] ? '<span class="ok">(passed)</span>' : ''}` : 'Not graded. Experiment freely.'}</p><div class="q"></div><div class="row opts"></div><div class="fb"></div><div class="dim st"></div>`, 'card'));
+    const c = host.lastChild, q = c.querySelector('.q'), o = c.querySelector('.opts'), fb = c.querySelector('.fb'), st = c.querySelector('.st');
+    let streak = 0, S;
+    const next = () => {
+      const d = shuffle(newDeck()), board = d.slice(2, 2 + pick([3, 4])), pot = pick([40, 60, 80, 100, 150, 200]), bet = Math.max(5, Math.round(pot * pick([0.33, 0.5, 0.75, 1, 1.5]) / 5) * 5);
+      S = { hero: d.slice(0, 2), board, pot, bet }; fb.innerHTML = '';
+      const slots = [0, 1, 2, 3, 4].map(i => board[i] ? cardH(board[i]) : '<span class="pc slot"></span>').join('');
+      q.innerHTML = `<div class="oval">
+        <div class="seat">Villain <span class="dbtn">D</span><div class="cards">${cardH(0, 1)}${cardH(0, 1)}</div><div>bets ${chipsH(bet)} <b>$${bet}</b></div></div>
+        <div class="pot">POT ${chipsH(pot)} $${pot}</div>
+        <div class="cards">${slots}</div><div class="lbl"><span>flop</span><span>·</span><span>turn</span><span>·</span><span>river</span></div>
+        <div class="seat">You<div class="cards">${cardsH(S.hero)}</div><div>to act: call <b>$${bet}</b> to win <b>$${pot + bet}</b></div></div></div>`;
+      o.innerHTML = ''; st.textContent = need ? 'Streak: ' + streak + '/' + need : '';
+      [['Call', 'call'], ['Fold', 'fold']].forEach(([l, v]) => { const b = document.createElement('button'); b.textContent = l; b.onclick = () => answer(v); o.appendChild(b); });
+    };
+    const answer = v => {
+      const eq = equity(S.hero, S.board), need_ = needEquity(S.pot, S.bet), ev = callEV(eq, S.pot, S.bet), right = eq > need_ ? 'call' : 'fold', close = Math.abs(eq - need_) < 0.03, good = close || v === right;
+      streak = good ? streak + 1 : 0;
+      fb.innerHTML = `${good ? '<span class="ok">Good.</span>' : '<span class="no">Not quite.</span>'} Your equity vs a random hand: <b>${(eq * 100).toFixed(0)}%</b>. Needed: <b>${(need_ * 100).toFixed(0)}%</b>. Call EV: <b>${ev >= 0 ? '+' : ''}$${ev.toFixed(0)}</b> on average. ${close ? '<span class="mid">Close spot, either is fine.</span>' : 'Math says <b>' + right + '</b>.'}`;
+      if (need && streak >= need) { pass(id); fb.innerHTML += ' <span class="ok">Drill passed!</span>'; streak = 0; }
+      st.textContent = need ? 'Streak: ' + streak + '/' + need : '';
+      o.innerHTML = ''; const nb = document.createElement('button'); nb.textContent = 'Next hand'; nb.className = 'pri'; nb.onclick = next; o.appendChild(nb);
+    };
+    next();
+  };
+  build(playHost, 'pk_play', 'Facing a bet: call or fold?', 0);
+  build(drHost, 'pk_odds', 'Pot odds drill', 5);
+}
+
+/* ================= ROULETTE ================= */
+function rlPage(app) {
+  app.innerHTML = `<p><a href="#" style="color:var(--acc)">&larr; All games</a></p><h1>Roulette</h1>
+  <p class="dim">Pure chance. There is no skill and no winning system, only a choice of how much variance you want. This page teaches the maths of why.</p>
+  ${NAV}<h2 id="pl">Play with the coach</h2><div id="rlplay"></div>
+  <h2 id="ln">Learn</h2>
+  <div class="card"><h3>1. The wheel</h3><p>European wheel: numbers 0-36, one green <b>0</b>. (American adds a 00, doubling the house edge to 5.26%.) A winning bet pays <b>odds : 1</b> on your stake as shown in the table below.</p></div>
+  <div class="card"><h3>2. Every bet has the same edge</h3><p>Payouts are set for 36 outcomes, but there are 37 pockets. So <b>every</b> bet loses on average <b>2.70%</b> of what you stake. Betting more often just loses more.</p>
+   <div id="rltab"></div>
+   <div class="tip">Inside bets (a single number) are high variance: rare big wins. Outside bets (red/black) are low variance: frequent small wins. Same edge, different ride.</div></div>
+  <div class="card"><h3>3. Why "systems" fail</h3><p>The Martingale (double after each loss) wins small amounts often, then a long losing streak hits the table limit or your bankroll and wipes you out. Run the test below.</p></div>
+  <h2 id="tr">Training</h2><div id="rldr"></div>`;
+  const rows = Object.entries(BETS).map(([n, [pay, w]]) => { const s = betStats(pay, w || (x => x === 17)); return `<tr><td>${n}</td><td>${pay}:1</td><td>${(s.p * 100).toFixed(1)}%</td><td>${(s.ev * 100).toFixed(2)}%</td></tr>`; });
+  $('rltab').innerHTML = '<table><tr><th>Bet</th><th>Pays</th><th>Win chance</th><th>Expected value per $1</th></tr>' + rows.join('') + '</table>';
+  rlTable($('rlplay'));
+  const dr = $('rldr');
+  const types = Object.keys(BETS);
+  drill(dr, 'rl_pay', 'Payout drill', 6, () => {
+    const t = pick(types), pay = BETS[t][0];
+    return { html: `<p>A winning <b>${t}</b> bet pays?</p>`, opts: [['1:1', 1], ['2:1', 2], ['35:1', 35]], answer: pay, why: `${t} pays ${pay}:1 with a win chance of ${(betStats(...[pay, BETS[t][1] || (x => x === 17)]).p * 100).toFixed(1)}%.` };
+  });
+  dr.appendChild(el(`<h3>Martingale test</h3><p class="dim">2000 players, 200 spins each, $1000 start, $10 base bet on Red, table max $500. Run it to pass. ${PROG.rl_sim ? '<span class="ok">(passed)</span>' : ''}</p><button class="pri run">Run simulation</button><div class="out"></div>`, 'card'));
+  const c = dr.lastChild;
+  c.querySelector('.run').onclick = () => {
+    const f = simulate(false), m = simulate(true), r = (n, x) => `<tr><td>${n}</td><td>$${x.avg.toFixed(0)}</td><td>${x.pctUp.toFixed(0)}%</td><td>${x.pctBust.toFixed(0)}%</td></tr>`;
+    c.querySelector('.out').innerHTML = '<table><tr><th>Strategy</th><th>Avg final bankroll</th><th>Ended in profit</th><th>Went broke</th></tr>' + r('Flat $10', f) + r('Martingale', m) + '</table><div class="tip">Martingale feels great (many players profit) but the rare busts cost more than the small wins. Average still ends below $1000. Maths beats systems.</div>';
+    pass('rl_sim');
+  };
+}
+function rlTable(host) {
+  host.appendChild(el(`<div class="rw"><div class="wheel">${wheelSVG()}</div>${rlGrid()}</div>
+   <p class="dim">Tap the table to choose your bet (gold outline), then spin.</p>
+   <div class="row"><span>Bankroll: <b class="bank"></b></span>
+   <select class="bt">${Object.keys(BETS).map(k => `<option>${k}</option>`).join('')}</select><input class="pk" type="number" min="0" max="36" value="17" style="display:none;width:64px">
+   <span>Bet $<input class="amt" type="number" min="1" value="10"></span><button class="spin pri">Spin</button><span class="res"></span></div>
+   <div class="dim info"></div><div class="fb"></div><div class="dim sc"></div>`, 'card felt'));
+  const c = host.lastChild, Q = s => c.querySelector(s);
+  let bank = 1000, spins = 0, net = 0;
+  const win = () => BETS[Q('.bt').value][1] || (n => n === +Q('.pk').value);
+  let info = () => { const t = Q('.bt').value, pay = BETS[t][0], s = betStats(pay, win()); Q('.pk').style.display = BETS[t][1] ? 'none' : ''; Q('.bank').textContent = '$' + bank;
+    Q('.info').textContent = `${t}: pays ${pay}:1, wins ${(s.p * 100).toFixed(1)}% of spins, expected ${(s.ev * 100).toFixed(2)}% per $ staked (the house edge).`; };
+  const mark = () => { const t = Q('.bt').value; c.querySelectorAll('.sel').forEach(x => x.classList.remove('sel')); const x = BETS[t][1] ? c.querySelector(`[data-b="${t}"]`) : c.querySelector(`[data-n="${+Q('.pk').value}"]`); if (x) x.classList.add('sel'); };
+  const info0 = info; info = () => { info0(); mark(); };
+  Q('.tbl').onclick = e => { const x = e.target.closest('[data-b],[data-n]'); if (!x) return; if (x.dataset.b) Q('.bt').value = x.dataset.b; else { Q('.bt').value = 'Straight (one number)'; Q('.pk').value = x.dataset.n; } info(); };
+  Q('.bt').onchange = Q('.pk').oninput = () => info(); info();
+  let rot = 0;
+  Q('.spin').onclick = () => {
+    let a = Math.max(1, Math.floor(+Q('.amt').value || 0)); if (bank < 1) bank = 1000; if (a > bank) a = bank;
+    const n = Math.floor(Math.random() * 37), pay = BETS[Q('.bt').value][0], w = win()(n), d = w ? a * pay : -a;
+    rot = Math.ceil((rot + 1) / 360) * 360 + 1440 - WHEEL.indexOf(n) * (360 / 37);       // winning pocket stops under the ball at the top
+    Q('.wh').style.transform = `rotate(${rot}deg)`; Q('.spin').disabled = true; Q('.fb').textContent = 'No more bets... spinning'; Q('.res').innerHTML = '';
+    setTimeout(() => {
+      bank += d; net += d; spins++;
+      Q('.res').innerHTML = `<span class="num ${n === 0 ? 'g' : RED.has(n) ? 'rd' : 'bk'}">${n}</span>`;
+      Q('.fb').innerHTML = w ? `<span class="ok">Win +$${d}</span> ${chipsH(d)}` : `<span class="no">Lose -$${a}</span>`;
+      Q('.sc').textContent = `${spins} spins. Net result $${net}. Expected after ${spins} spins at this edge: about -$${(spins * 10 / 37).toFixed(0)} for $10 bets.`;
+      Q('.spin').disabled = false; info();
+    }, 3200);
+  };
+}
+
+/* ================= router ================= */
+const GAMES = [['bj', 'Blackjack', 'Hit, stand, double, split. Basic strategy and Hi-Lo counting.', bjPage], ['poker', 'Poker', 'Hand rankings, equity and pot odds against a bet.', pkPage], ['rl', 'Roulette', 'Odds, house edge and why betting systems fail.', rlPage]];
+function route() {
+  const app = $('app'), g = GAMES.find(x => '#' + x[0] === location.hash);
+  if (g) { g[3](app); window.scrollTo(0, 0); return; }
+  app.innerHTML = `<h1>Casino Coach</h1><p class="dim">Learn the maths behind casino games and practise with play money. Every page has lessons, a table you can play with a live coach, and drills. Progress is saved on this device.</p>`;
+  GAMES.forEach(([id, t, d]) => { const p = DRILLS[id].filter(x => PROG[x]).length; const c = el(`<h3>${t}</h3><p>${d}</p><p class="dim">Drills: ${p}/${DRILLS[id].length}</p><button class="pri">▶ Play now</button> <button>📖 Learn</button>`, 'card stage'); c.onclick = () => location.hash = id; c.querySelector('.pri').onclick = e => { e.stopPropagation(); location.href = PAGES[id]; }; app.appendChild(c); });
+  app.appendChild(el('<div class="warn">Play money only. In real casinos every game has a built-in house edge, so none of this makes gambling profitable. If gambling stops being fun, talk to someone or use a helpline.</div>'));
+}
+window.onhashchange = route; bar(); route();
+</script>

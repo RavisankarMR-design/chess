@@ -1,0 +1,33 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Game Coach</title>
+<style>
+  :root{--bg:#111;--card:#1b1b1d;--line:#2c2c30;--fg:#eee;--dim:#9a9aa2;--acc:#7ccf8a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui;min-height:100vh;display:flex;flex-direction:column;align-items:center}
+  main{width:100%;max-width:640px;padding:28px 16px 40px}
+  h1{font-size:28px;margin:8px 0 2px} p{margin:6px 0}.dim{color:var(--dim)}
+  a.game{display:flex;gap:16px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin:16px 0;color:var(--fg);text-decoration:none}
+  a.game:hover,a.game:focus{border-color:var(--acc)}
+  .ico{font-size:46px;line-height:1;width:64px;text-align:center;flex:none}
+  .t{font-size:21px;font-weight:700}
+  .links{display:flex;gap:14px;flex-wrap:wrap;font-size:14px;margin-top:4px}
+  .links a{color:var(--acc);text-decoration:none}
+</style>
+<main>
+  <h1>Game Coach</h1>
+  <p class="dim">Learn and practise. Pick a game.</p>
+
+  <a class="game" href="/chess">
+    <div class="ico">&#9822;</div>
+    <div><div class="t">Chess</div><div class="dim">Move helper, an 18-chapter course from beginner to pro, puzzle trainer and coached games.</div></div>
+  </a>
+  <div class="links" style="margin:-8px 0 0 96px"><a href="/chess">Move helper</a><a href="/learn">Course</a><a href="/learn#puzzles">Puzzle trainer</a></div>
+
+  <a class="game" href="/casino/">
+    <div class="ico">&#127920;</div>
+    <div><div class="t">Casino</div><div class="dim">Blackjack, poker and roulette with play chips: rules, strategy, odds and drills.</div></div>
+  </a>
+  <div class="links" style="margin:-8px 0 0 96px"><a href="/casino/blackjack.html">Blackjack</a><a href="/casino/poker.html">Poker</a><a href="/casino/roulette.html">Roulette</a></div>
+</main>
