@@ -24,11 +24,13 @@
    <div class="dim" id="score" style="margin-top:6px"></div></div>
   <div class="panel"><h3>Card counting (Hi-Lo)</h3><label class="dim"><input type="checkbox" id="showc"> show count</label><div id="count" class="dim">Count hidden. Track it yourself, then tick the box to check.</div>
    <details><summary>How it works</summary><p class="dim">2-6 = +1, 7-9 = 0, 10-A = -1. True count = running count / decks left. Positive = more tens and aces left = good for you.</p></details></div>
+  <div class="panel"><h3>Strategy charts</h3><div id="charts" style="overflow-x:auto"></div></div>
   <div class="panel"><h3>Quick rules</h3><div class="dim">6 decks · dealer stands on all 17 · blackjack pays 3:2 · double any two cards · split once · no surrender.
    <br>Dealer 2-6 is weak (may bust). 7-A is strong. Always split A and 8. Never split 10s.</div></div>
  </div>
 </div>
 <script src="logic.js"></script><script src="ui.js"></script>
+<script>document.getElementById('charts').innerHTML = [['hard', 'Hard hands'], ['soft', 'Soft hands'], ['pair', 'Pairs']].map(([k, t]) => `<details><summary>${t}</summary>${bjChartH(k)}</details>`).join('') + '<div class="dim">Full lessons: <a href="index.html#bj" style="color:#ffd166">Learn page</a></div>';</script>
 <script>
 const MOVE = { H: 'Hit', S: 'Stand', D: 'Double', P: 'Split' };
 let shoe = [], count = 0, bank = 1000, bet = 0, S = null, n = 0, ok = 0, busy = false;

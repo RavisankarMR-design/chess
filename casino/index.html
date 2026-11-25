@@ -82,15 +82,15 @@ function rlGrid() {
   return h + '</div>';
 }
 const cardsH = (a, hideSecond) => a.map((c, i) => cardH(c, hideSecond && i === 1)).join('');
-const DRILLS = { bj: ['bj_strat', 'bj_count'], poker: ['pk_rank', 'pk_odds'], rl: ['rl_pay', 'rl_sim'] };
+const DRILLS = { bj: ['bj_hard', 'bj_soft', 'bj_pair', 'bj_strat', 'bj_count'], poker: ['pk_rank', 'pk_pre', 'pk_outs', 'pk_odds'], rl: ['rl_pay', 'rl_prob', 'rl_ev', 'rl_fall', 'rl_mart', 'rl_sim'] };
 function bar() {
   const all = Object.values(DRILLS).flat(), n = all.filter(d => PROG[d]).length;
   $('pb').style.width = (100 * n / all.length) + '%'; $('pt').textContent = n + '/' + all.length + ' drills';
 }
 
 /* ---------- generic streak drill: make() -> {html, opts:[[label,value]], answer, why} ---------- */
-function drill(host, id, title, need, make) {
-  host.appendChild(el(`<h3>${title}</h3><p class="dim">Get <b>${need}</b> right in a row to pass ${PROG[id] ? '<span class="ok">(passed)</span>' : ''}</p><div class="q"></div><div class="row opts"></div><div class="fb"></div><div class="dim st"></div>`, 'card'));
+function drill(host, id, title, need, make, chart) {
+  host.appendChild(el(`<h3>${title}</h3><p class="dim">Get <b>${need}</b> right in a row to pass ${PROG[id] ? '<span class="ok">(passed)</span>' : ''}</p>${chart ? `<details open><summary>Chart</summary>${bjChartH(chart)}</details>` : ''}<div class="q"></div><div class="row opts"></div><div class="fb"></div><div class="dim st"></div>`, 'card'));
   const card = host.lastChild, q = card.querySelector('.q'), o = card.querySelector('.opts'), fb = card.querySelector('.fb'), st = card.querySelector('.st');
   let streak = 0;
   const next = () => {
@@ -121,26 +121,74 @@ function bjPage(app) {
    <li>Closest to 21 without busting wins. Dealer must hit to 16 and stand on all 17s.</li>
    <li>Blackjack (Ace + 10-value) pays 3:2. Other wins pay 1:1. Tie = push.</li>
    <li><b>Hit</b> = take a card, <b>Stand</b> = stop, <b>Double</b> = double your bet, get one card, <b>Split</b> = a pair becomes two hands.</li></ul></div>
-  <div class="card"><h3>2. Basic strategy: the idea</h3>
-   <p>Every hand has one mathematically best move for each dealer upcard. The dealer's <b>2-6 are weak</b> (they bust often) and <b>7-A are strong</b>.</p>
-   <ul><li>Dealer weak: don't risk busting; stand on 12-16 (12 only vs 4-6), double 9/10/11.</li>
-   <li>Dealer strong: you must hit stiff hands (12-16) because standing will probably lose.</li>
-   <li>Always split Aces and 8s. Never split 10s or 5s.</li></ul>
-   <div class="tip">Rule used here: 6 decks, dealer stands on soft 17, double after split, one split only, no surrender.</div></div>
+  <div class="card"><h3>2. Basic strategy: the big idea</h3>
+   <p>For every hand you can hold and every dealer upcard there is one best move, worked out by computer over billions of hands. Memorise it and the house edge drops from roughly 2% or more (guessing) to <b>about 0.5%</b>. Three charts cover everything: <b>hard hands, soft hands, pairs</b>. Learn them in that order, each has its own drill below.</p>
+   <p><b>The key: the dealer's upcard decides everything.</b> The dealer must keep hitting until 17, so how often they bust depends on their first card:</p>
+   <table><tr><th>Dealer shows</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th><th>A</th></tr>
+   <tr><td>Dealer busts about</td><td>35%</td><td>37%</td><td>39%</td><td>42%</td><td>42%</td><td>26%</td><td>24%</td><td>23%</td><td>21%</td><td>12%</td></tr></table>
+   <ul><li><b>Dealer 2-6 = weak (they bust a lot).</b> You stay safe: don't risk busting, double when you're strong.</li>
+   <li><b>Dealer 7-A = strong (they usually make 17+).</b> Assume they'll make 17-20, so your stiff hands must take a risk and hit.</li></ul>
+   <div class="tip">Rules used here: 6 decks, dealer stands on soft 17, double on any first two cards, double after split allowed, split once only, no surrender. Other tables use slightly different charts.</div></div>
+  <div class="card"><h3>3. Hard hands (no Ace, or Ace counted as 1)</h3>
+   <p>A hard hand can bust if you hit. Rules, from top to bottom:</p>
+   <ul><li><b>17 or more: always stand.</b></li>
+   <li><b>13-16:</b> stand if dealer shows 2-6, hit if 7-A. (Dealer weak: let them bust. Dealer strong: standing loses, so you must gamble.)</li>
+   <li><b>12:</b> same, but only stand against <b>4, 5, 6</b>. Hit against 2 and 3.</li>
+   <li><b>11:</b> double against everything except an Ace (then hit).</li>
+   <li><b>10:</b> double against 2-9, hit against 10 and Ace.</li>
+   <li><b>9:</b> double against 3-6, otherwise hit.</li>
+   <li><b>8 or less:</b> always hit (you can't bust).</li></ul>
+   ${bjChartH('hard')}
+   <div class="tip"><b>Example:</b> You hold 10+6 = hard 16, dealer shows 10. Standing wins only when the dealer busts (21%), hitting is a little better. So <b>hit</b>. Same hand vs a dealer 6 → <b>stand</b>.<br><b>Doubling:</b> only when you can't be hurt much and a 10 is likely: you double 11 because a 10 makes 21. If doubling isn't allowed, just hit.</div></div>
+  <div class="card"><h3>4. Soft hands (an Ace counted as 11)</h3>
+   <p>A soft hand cannot bust on the next card, because the Ace can drop to 1. That makes you braver: you get to double more and you hit soft totals that would be a stand if hard.</p>
+   <ul><li><b>Soft 19 and 20 (A,8 / A,9): stand.</b></li>
+   <li><b>Soft 18 (A,7):</b> double against <b>3-6</b>, stand against 2, 7, 8, <b>hit against 9, 10, A</b>. (18 is only good against a dealer that will land on 17.)</li>
+   <li><b>Soft 17 (A,6):</b> double against 3-6, otherwise hit. Never stand on soft 17.</li>
+   <li><b>Soft 15-16 (A,4 / A,5):</b> double against 4-6, otherwise hit.</li>
+   <li><b>Soft 13-14 (A,2 / A,3):</b> double against 5-6, otherwise hit.</li></ul>
+   ${bjChartH('soft')}
+   <div class="tip"><b>Pattern:</b> the lower the soft hand, the fewer dealer cards you double against (3-6 → 4-6 → 5-6). When you wanted to double but the rules don't allow it, hit (stand with soft 18).</div></div>
+  <div class="card"><h3>5. Pairs: split or not</h3>
+   <p>Only the first two cards can be split, and only when they are a pair (any two 10-value cards count). You place a second bet equal to the first.</p>
+   <ul><li><b>Aces and 8s: ALWAYS split.</b> A,A = 12 is weak but each Ace starts a strong hand. 8,8 = 16 is the worst hand; splitting turns it into two decent starts.</li>
+   <li><b>10s and 5s: NEVER split.</b> 20 is already great. 5,5 is a hard 10, so double it (vs 2-9).</li>
+   <li><b>9s:</b> split against 2-6, 8 and 9. <b>Stand</b> against 7 (18 beats 17), 10 and A.</li>
+   <li><b>7s:</b> split against 2-7, else hit. <b>6s:</b> split against 2-6, else hit.</li>
+   <li><b>4s:</b> split only against 5 and 6, else hit. <b>2s and 3s:</b> split against 2-7, else hit.</li></ul>
+   ${bjChartH('pair')}
+   <div class="tip"><b>Memory:</b> split pairs when the dealer is weak (2-6/7), except 8s and Aces (always) and 5s, 10s (never). When the dealer is strong, only 8s and Aces get split.</div></div>
+  <div class="card"><h3>6. Insurance, even money, and other traps</h3>
+   <ul><li><b>Never take insurance or "even money".</b> It's a side bet that the dealer has blackjack. It pays 2:1 but the true odds are about 9:4, so it costs you about 7% of the insurance bet every time.</li>
+   <li>Don't copy other players or "save" the dealer's bust card. Each card is random.</li>
+   <li>Never hit hard 17+. Never stand on hard 8 or less. Every other decision is on the charts above.</li>
+   <li>Your goal isn't to win each hand. It's to make the move with the best average result, hand after hand.</li></ul></div>
+  <div class="card"><h3>7. How to study this</h3>
+   <ol><li>Read sections 3, 4, 5. Do the <b>Hard hands drill</b> (chart visible, 10 in a row), then the <b>Soft</b> and <b>Pairs</b> drills.</li>
+   <li>Do the <b>Final test</b>: mixed hands, no chart, 10 in a row. It only asks things the lessons above teach, and each mistake gets the reason for the right move.</li>
+   <li>Play the real table and keep the coach on. Aim for 95%+ matching basic strategy.</li></ol></div>
   <div class="card"><h3>3. Card counting (Hi-Lo)</h3>
    <p>Low cards (2-6) <b>+1</b>, middle (7-9) <b>0</b>, high (10-A) <b>-1</b>. Keep a running total. A high count means the shoe is rich in tens and aces, which favours the player. <b>True count = running count ÷ decks left</b>; raise bets when it's +2 or more.</p>
    <div class="warn">Counting is legal but casinos can ban you. Real edge is small (~1%) and needs a big bankroll. Treat it as a skill to understand.</div></div>
   <h2 id="tr">Training</h2><div id="bjdr"></div>`;
   bjTable($('bjplay')); const dr = $('bjdr');
-  drill(dr, 'bj_strat', 'Strategy drill', 10, () => {
-    let h, up, canD = true, canS = true;
-    do { h = [pick(newDeck()), pick(newDeck())]; } while (bjVal(h).total > 20);
-    up = pv(pick(newDeck()));
-    const m = bjAdvice(h, up, canD, canS), { total, soft } = bjVal(h);
-    return { html: `<p>Dealer shows:</p><div class="cards">${cardH({ r: up === 11 ? 14 : up, s: 0 })}</div><p>You hold (${soft ? 'soft ' : ''}${total}):</p><div class="cards">${cardsH(h)}</div>`,
-      opts: Object.entries(MOVE).map(([k, v]) => [v, k]), answer: m,
-      why: `Basic strategy: <b>${MOVE[m]}</b>. Dealer ${up <= 6 ? 'is weak (likely to bust)' : 'is strong'}.` };
-  });
+  const rs = () => Math.floor(Math.random() * 4), R = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const mk = (kind) => () => {
+    let h;
+    const up = R(2, 11), k = kind === 'mix' ? pick(['hard', 'hard', 'soft', 'pair']) : kind;
+    if (k === 'hard') { let a, b; do { a = R(2, 10); b = R(2, 10); } while (a === b); h = [{ r: a, s: rs() }, { r: b, s: rs() }]; }
+    else if (k === 'soft') h = shuffle([{ r: 14, s: rs() }, { r: R(2, 9), s: rs() }]);
+    else { const p = R(2, 11); h = [{ r: p === 11 ? 14 : p, s: rs() }, { r: p === 11 ? 14 : p, s: rs() }]; }
+    const m = bjAdvice(h, up, true, k === 'pair'), { total, soft } = bjVal(h);
+    const mine = k === 'pair' ? `a <b>pair of ${pv(h[0]) === 11 ? 'Aces' : pv(h[0]) + 's'}</b>` : `${soft ? 'soft ' : 'hard '}<b>${total}</b>`;
+    return { html: `<p>Dealer shows:</p><div class="cards">${cardH({ r: up === 11 ? 14 : up, s: 0 })}</div><p>You hold ${mine}:</p><div class="cards">${cardsH(h)}</div>`,
+      opts: Object.entries(MOVE).filter(([x]) => k === 'pair' || x !== 'P').map(([x, v]) => [v, x]), answer: m,
+      why: `Correct move: <b>${MOVE[m]}</b>. ${bjWhy(h, up, m)}` };
+  };
+  drill(dr, 'bj_hard', 'Drill 1: Hard hands (chart visible)', 10, mk('hard'), 'hard');
+  drill(dr, 'bj_soft', 'Drill 2: Soft hands (chart visible)', 10, mk('soft'), 'soft');
+  drill(dr, 'bj_pair', 'Drill 3: Pairs (chart visible)', 10, mk('pair'), 'pair');
+  drill(dr, 'bj_strat', 'FINAL TEST: mixed hands, no chart', 10, mk('mix'));
   bjCountDrill(dr);
 }
 function bjCountDrill(host) {
@@ -221,25 +269,107 @@ function pkPage(app) {
   <div class="card"><h3>1. How a hand works</h3><ul>
    <li>Each player gets 2 private cards. 5 community cards come in stages: <b>flop</b> (3), <b>turn</b> (1), <b>river</b> (1), with betting rounds between.</li>
    <li>Your hand = best 5 cards from your 2 + the 5 on the board.</li>
-   <li>Actions: <b>fold</b>, <b>call</b> (match the bet), <b>raise</b>, <b>check</b> (no bet to face).</li></ul></div>
+   <li>Actions: <b>fold</b>, <b>call</b> (match the bet), <b>raise</b>, <b>check</b> (no bet to face).</li>
+   <li><b>Blinds:</b> two players post forced bets before the cards (small blind $10, big blind $20 on the table page). The <b>dealer button</b> moves one seat each hand. The first betting round (<b>preflop</b>) starts left of the big blind; after that, action starts left of the button, so the button acts <b>last</b>.</li>
+   <li><b>Position matters:</b> acting last (button, "cutoff") means you see what everyone does first. Late position = play more hands. Early position = play only strong hands.</li>
+   <li>At <b>showdown</b> the best 5-card hand wins the pot. If everyone else folds, you win without showing. Equal hands split the pot.</li></ul></div>
   <div class="card"><h3>2. Hand rankings (strongest first)</h3>
    <table><tr><th>#</th><th>Hand</th><th>Example</th><th>Chance in 7 cards</th></tr>
    <tr><td>1</td><td>Straight flush</td><td>9♥8♥7♥6♥5♥</td><td>0.03%</td></tr><tr><td>2</td><td>Four of a kind</td><td>K K K K 3</td><td>0.17%</td></tr>
    <tr><td>3</td><td>Full house</td><td>Q Q Q 8 8</td><td>2.6%</td></tr><tr><td>4</td><td>Flush</td><td>five hearts</td><td>3.0%</td></tr>
    <tr><td>5</td><td>Straight</td><td>5 6 7 8 9</td><td>4.6%</td></tr><tr><td>6</td><td>Three of a kind</td><td>7 7 7 K 2</td><td>4.8%</td></tr>
-   <tr><td>7</td><td>Two pair</td><td>J J 4 4 A</td><td>23.5%</td></tr><tr><td>8</td><td>Pair</td><td>10 10 A 7 3</td><td>43.8%</td></tr><tr><td>9</td><td>High card</td><td>A K 9 5 2</td><td>17.4%</td></tr></table></div>
-  <div class="card"><h3>3. Pot odds and equity: the key idea</h3>
+   <tr><td>7</td><td>Two pair</td><td>J J 4 4 A</td><td>23.5%</td></tr><tr><td>8</td><td>Pair</td><td>10 10 A 7 3</td><td>43.8%</td></tr><tr><td>9</td><td>High card</td><td>A K 9 5 2</td><td>17.4%</td></tr></table>
+   <div class="tip"><b>Ranking details the test uses:</b><br>• Suits never rank. A flush is five cards of one suit.<br>• <b>Straights:</b> five in a row. Ace is high (10-J-Q-K-A) or low (A-2-3-4-5, the "wheel"). No wrapping: Q-K-A-2-3 is not a straight.<br>• <b>Full house:</b> three of one rank + two of another. <b>Two pair</b> is two different pairs.<br>• With 7 cards you simply pick the best 5. The board can be your whole hand ("the board plays").<br>• Same category: higher cards win. Pair of Aces with a King kicker beats pair of Aces with a Queen kicker.<br>• Straight flush = straight and flush at once (royal flush = A-K-Q-J-10 of one suit).</div></div>
+  <div class="card"><h3>3. Starting hands (before the flop)</h3>
+   <p>Most hands are not worth playing, and <b>position decides how many you can play</b>. This guide is for the common spot: <b>everyone has folded to you and you choose to raise or fold</b> (6-max table). It follows the shape of published 6-max opening ranges: about 12% of hands from early position, about 24% from the cutoff or button.</p>
+   <table><tr><th>Seat</th><th>Raise with</th><th>Share of hands</th></tr>
+   <tr><td><b>Early</b> (first to act, UTG / hijack)</td><td>Pairs 66+, AK, AQ, AJ (suited or not), ATs, KQ (suited or not), KJs, KTs, QJs, QTs, JTs, T9s</td><td>~11%</td></tr>
+   <tr><td><b>Late</b> (cutoff / button)</td><td>All of the above, plus pairs 22-55, any suited Ace (A2s-A9s), K9s, Q9s, J9s, T8s, 98s, 87s, 76s, 65s, 54s, ATo, KJo, KTo, QJo, QTo, JTo</td><td>~23%</td></tr>
+   <tr><td>Everything else</td><td colspan="2"><b>Fold</b> (K7o, Q4s, J5o, 94o, ...)</td></tr></table>
+   <p class="dim">s = suited (same suit), o = offsuit. Suited adds about 2-3% equity and gives flush chances. Connected cards (8-7) make straights. High cards make top pairs. Pairs are already made hands. Later position = you act last after the flop, which is worth a lot. This is a simplified guide: real play adjusts for stack sizes, raises in front of you, and opponents.</p></div>
+  <div class="card"><h3>4. Outs: counting your chances</h3>
+   <p>An <b>out</b> is an unseen card that completes your draw to (probably) the best hand. Count the cards, not the ranks: a flush draw has 13 suited cards, you hold or see 4, so <b>9 left</b>.</p>
+   <table><tr><th>Draw</th><th>Outs</th><th>How</th></tr>
+   <tr><td>Flush draw (4 of one suit)</td><td><b>9</b></td><td>13 - 4 seen</td></tr>
+   <tr><td>Open-ended straight draw (four in a row, both ends open, e.g. 5-6-7-8)</td><td><b>8</b></td><td>4 fours + 4 nines</td></tr>
+   <tr><td>Gutshot (a gap in the middle, e.g. 5-6-8-9 needs a 7)</td><td><b>4</b></td><td>one rank missing</td></tr>
+   <tr><td>Two overcards (A K vs a low board)</td><td><b>6</b></td><td>3 Aces + 3 Kings to pair up</td></tr>
+   <tr><td>One overcard</td><td><b>3</b></td><td></td></tr>
+   <tr><td>Pocket pair wanting a set</td><td><b>2</b></td><td>two cards of that rank left</td></tr>
+   <tr><td>Flush draw + open-ended straight draw</td><td><b>15</b></td><td>9 + 8 - 2 overlap</td></tr></table>
+   <div class="tip"><b>Rule of 4 and 2:</b> your chance to hit by the river ≈ <b>outs × 4%</b> on the flop (two cards to come), and <b>outs × 2%</b> on the turn (one card to come). Flush draw: 9 × 4 = 36% (true 35%). Open-ended: 8 × 4 = 32%. Gutshot: 16%. With more than 8 outs the rule overshoots: for 15 outs the true figure is 54%, not 60%. Fix: <code>outs × 4 - (outs - 8)</code> = 15 × 4 - 7 = 53%. The rule of 2 is slightly low on the turn (flush draw: 19.6% true vs 18%).</div></div>
+  <div class="card"><h3>5. Pot odds: is the call worth it?</h3>
    <p><b>Equity</b> = your chance to win the hand. <b>Pot odds</b> = the price the pot offers you.</p>
-   <p>Pot is $100, villain bets $50. You pay $50 to win $150, so you need <code>50 / (100 + 50 + 50) = 25%</code> equity to break even.</p>
-   <div class="tip"><b>Call when equity > required equity.</b> Quick equity: count your <b>outs</b> (cards that improve you to the best hand). Chance ≈ outs × 4% on the flop (two cards to come), outs × 2% on the turn. Flush draw = 9 outs ≈ 36% on the flop. Open-ended straight draw = 8 outs ≈ 32%.</div>
-   <div class="warn">The trainer below measures equity against a <b>random</b> hand. A real opponent who bets usually has a stronger range, so be more willing to fold when the math is close.</div></div>
+   <p>Pot is $100, villain bets $50. You pay $50 to win $150, so you need <code>call / (pot + bet + call) = 50 / (100 + 50 + 50) = 25%</code> equity to break even.</p>
+   <table><tr><th>Villain bets</th><th>1/4 pot</th><th>1/3 pot</th><th>1/2 pot</th><th>2/3 pot</th><th>3/4 pot</th><th>pot</th><th>2x pot</th></tr>
+   <tr><td>You need</td><td>17%</td><td>20%</td><td>25%</td><td>29%</td><td>30%</td><td>33%</td><td>40%</td></tr></table>
+   <div class="tip"><b>Call when your equity is more than the number you need.</b> Example: flush draw on the flop (9 outs ≈ 36%) facing a half-pot bet (need 25%) → <b>call</b>. Same draw facing a bet of 1.5x pot (need 38%) → <b>fold</b>.</div>
+   <div class="warn">Equity from outs only counts when completing the draw wins. And the trainer's "random hand" equity is optimistic: a real opponent who bets usually has a stronger range, so fold more when the math is close.</div></div>
+  <div class="card"><h3>6. Common beginner mistakes</h3><ul>
+   <li>Playing too many hands. Fold the junk preflop.</li>
+   <li>Calling with no outs "to see what happens". Each call costs real money.</li>
+   <li>Paying too much for a draw. Compare outs to pot odds first.</li>
+   <li>Ignoring position. The same hand is better on the button than under the gun.</li>
+   <li>Only betting strong hands and only calling weak ones. Betting a good hand gets value, and betting gets folds too.</li></ul></div>
+  <div class="card"><h3>7. How to study this</h3><ol>
+   <li>Learn the hand rankings. Drill 1.</li>
+   <li>Learn the starting-hand guide. Drill 2.</li>
+   <li>Learn the outs table and the rule of 4. Drill 3.</li>
+   <li>Learn the pot-odds numbers, then Drill 4 combines outs with pot odds.</li>
+   <li>Play the table with the coach.</li></ol></div>
   <h2 id="tr">Training</h2><div id="pkdr"></div>`;
   const dr = $('pkdr');
-  drill(dr, 'pk_rank', 'Hand ranking drill', 8, () => {
-    const d = shuffle(newDeck()), h = d.slice(0, 7), s = bestOf(h), c = catOf(s);
-    return { html: `<p>What is the best 5-card hand?</p><div class="cards">${cardsH(h)}</div>`, opts: CATS.map((n, i) => [n, i]).reverse(), answer: c, why: `Best hand: <b>${CATS[c]}</b>.` };
+  const R = (a, b) => a + Math.floor(Math.random() * (b - a + 1)), card = (r, s) => ({ r, s });
+  const best5 = cards => { let b = -1, bc; (function rec(s, ch) { if (ch.length === 5) { const v = eval5(ch); if (v > b) { b = v; bc = ch.slice(); } return; } for (let i = s; i < cards.length; i++) { ch.push(cards[i]); rec(i + 1, ch); ch.pop(); } })(0, []); return bc; };
+  const RK = { 'high card': 'No pair, no straight, no flush: the highest card plays.', 'Pair': 'Two cards of the same rank.', 'Two pair': 'Two different pairs.', 'Three of a kind': 'Three cards of the same rank.', 'Straight': 'Five ranks in a row (Ace high or low).', 'Flush': 'Five cards of one suit.', 'Full house': 'Three of one rank plus two of another.', 'Four of a kind': 'Four cards of the same rank.', 'Straight flush': 'Five in a row, all one suit.' };
+  drill(dr, 'pk_rank', 'Drill 1: Hand ranking', 8, () => {
+    const d = shuffle(newDeck()), s0 = R(0, 3), a = R(2, 14), b = a === 14 ? 13 : a + 1, seeds = [
+      () => [0, 1, 2, 3, 4].map(i => card(2 + i + (a % 8), s0)),
+      () => [0, 1, 2, 3].map(i => card(a, i)),
+      () => [card(a, 0), card(a, 1), card(a, 2), card(b, 0), card(b, 1)],
+      () => shuffle([2, 3, 5, 7, 9, 11, 13, 14]).slice(0, 5).map(r => card(r, s0)),
+      () => [0, 1, 2, 3, 4].map(i => card(a % 9 + 2 + i, R(0, 3))),
+      () => [0, 1, 2, 3, 4].map(i => card(i === 4 ? 14 : i + 2, R(0, 3))),
+      () => [card(a, 0), card(a, 1), card(a, 2)], () => [card(a, 0), card(a, 1), card(b, 2), card(b, 3)]];
+    let h = Math.random() < 0.6 ? pick(seeds)() : [];
+    const seen = new Set(), hh = []; for (const c of h.concat(d)) { const k = c.r * 4 + c.s; if (hh.length < 7 && !seen.has(k)) { seen.add(k); hh.push(c); } } h = shuffle(hh);
+    const s = bestOf(h), c = catOf(s), b5 = best5(h);
+    return { html: `<p>What is the best 5-card hand you can make from these 7 cards?</p><div class="cards">${cardsH(h)}</div>`, opts: CATS.map((n, i) => [n, i]).reverse(), answer: c,
+      why: `Best five: ${cardsH(b5)}<br><b>${CATS[c]}</b>. ${RK[CATS[c]] || RK['high card']}` };
   });
-  pkOdds(dr, $('pkplay'));
+  drill(dr, 'pk_pre', 'Drill 2: Raise or fold? (guide in section 3)', 10, () => {
+    const pos = pick(['E', 'L']); let h;
+    do { h = shuffle(newDeck()).slice(0, 2); } while (Math.random() < 0.6 && pkPre(h, pos)[0] === 'F');   // show more raise-worthy hands than a random deal would
+    const [m, nm, why] = pkPre(h, pos);
+    return { html: `<p>Everyone folds to you. You are <b>${pos === 'E' ? 'first to act (early position, UTG)' : 'on the button (late position)'}</b>. Your hand (${nm}):</p><div class="cards">${cardsH(h)}</div>`, opts: [['Raise', 'R'], ['Fold', 'F']], answer: m, why: `<b>${m === 'R' ? 'Raise' : 'Fold'}</b> (${nm}, ${pos === 'E' ? 'early' : 'late'} position). ${why}` };
+  });
+  // outs scenarios: [hero, board, outs, label]. Draws are verified by exact counting so the answer can't be wrong.
+  const scen = kind => {
+    for (let n = 0; n < 500; n++) {
+      let hero, board, outs, lab, suits = () => R(0, 3);
+      if (kind === 'flush') { const s = R(0, 3), os = (s + R(1, 3)) % 4, rk = shuffle([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]).slice(0, 5); hero = [card(rk[0], s), card(rk[1], s)]; board = [card(rk[2], s), card(rk[3], s), card(rk[4], os)]; outs = 9; lab = 'a flush draw'; }
+      else if (kind === 'oesd' || kind === 'gut') { const a = kind === 'oesd' ? R(3, 9) : R(2, 10), rs = kind === 'oesd' ? [a, a + 1, a + 2, a + 3] : [a, a + 1, a + 3, a + 4], x = R(2, 14); const all = shuffle(rs.concat([x])); if (new Set(all).size < 5) continue;
+        const ss = [R(0, 3), R(0, 3), R(0, 3), R(0, 3), R(0, 3)]; hero = [card(all[0], ss[0]), card(all[1], ss[1])]; board = [card(all[2], ss[2]), card(all[3], ss[3]), card(all[4], ss[4])]; outs = kind === 'oesd' ? 8 : 4; lab = kind === 'oesd' ? 'an open-ended straight draw' : 'a gutshot straight draw'; }
+      else { hero = [card(14, 3), card(13, 0)]; const bs = shuffle([2, 3, 4, 5, 6, 7, 8, 9]).slice(0, 3); board = [card(bs[0], 1), card(bs[1], 2), card(bs[2], 0)]; return { hero, board, outs: 6, lab: 'two overcards (no pair, no draw)', why: 'Two overcards: 3 Aces + 3 Kings = 6 cards that pair you with the top card.' }; }
+      if (pkDrawOuts(hero, board) === outs) return { hero, board, outs, lab, why: { 9: 'Flush draw: 13 cards of the suit - 4 you can see = 9 outs.', 8: 'Open-ended straight draw: 4 cards complete the straight on each end = 8 outs.', 4: 'Gutshot: only one rank completes it, 4 cards = 4 outs.' }[outs] };
+    }
+    return scen('flush');
+  };
+  const board5 = b => [0, 1, 2, 3, 4].map(i => b[i] ? cardH(b[i]) : '<span class="pc slot"></span>').join('');
+  drill(dr, 'pk_outs', 'Drill 3: Count your outs (table in section 4)', 8, () => {
+    const k = pick(['flush', 'oesd', 'gut', 'over']), S = scen(k);
+    return { html: `<p>You hold:</p><div class="cards">${cardsH(S.hero)}</div><p>Flop:</p><div class="cards">${board5(S.board)}</div><p>You are drawing to <b>${S.lab}</b>. How many outs do you have?</p>`,
+      opts: [[2, 2], [4, 4], [6, 6], [8, 8], [9, 9], [15, 15]], answer: S.outs, why: `<b>${S.outs} outs</b>. ${S.why} Chance by the river ≈ ${S.outs} × 4 = <b>${S.outs * 4}%</b>.` };
+  });
+  drill(dr, 'pk_odds', 'Drill 4: Draw or fold? (outs + pot odds)', 8, () => {
+    let S, pot, bet, eq, need;
+    do { S = scen(pick(['flush', 'oesd', 'gut', 'over'])); pot = pick([40, 60, 80, 100, 120, 200]); bet = Math.max(5, Math.round(pot * pick([0.25, 0.33, 0.5, 0.75, 1, 1.5, 2]) / 5) * 5); eq = S.outs * 4 / 100; need = bet / (pot + 2 * bet); } while (Math.abs(eq - need) < 0.04);
+    const right = eq > need ? 'call' : 'fold';
+    return { html: `<p>You hold:</p><div class="cards">${cardsH(S.hero)}</div><p>Flop:</p><div class="cards">${board5(S.board)}</div><p>You have <b>${S.lab}</b> (${S.outs} outs). Pot is <b>$${pot}</b>, villain bets <b>$${bet}</b>. Call or fold?</p>`,
+      opts: [['Call', 'call'], ['Fold', 'fold']], answer: right,
+      why: `Equity ≈ ${S.outs} × 4 = <b>${(eq * 100).toFixed(0)}%</b>. You need call ÷ (pot + bet + call) = ${bet} ÷ ${pot + 2 * bet} = <b>${(need * 100).toFixed(0)}%</b>. ${eq > need ? 'Equity is higher than needed → <b>call</b>.' : 'Equity is lower than needed → <b>fold</b>.'}` };
+  });
+  pkOdds(null, $('pkplay'));
 }
 function pkOdds(drHost, playHost) {
   const build = (host, id, title, need) => {
@@ -269,7 +399,6 @@ function pkOdds(drHost, playHost) {
     next();
   };
   build(playHost, 'pk_play', 'Facing a bet: call or fold?', 0);
-  build(drHost, 'pk_odds', 'Pot odds drill', 5);
 }
 
 /* ================= ROULETTE ================= */
@@ -278,27 +407,66 @@ function rlPage(app) {
   <p class="dim">Pure chance. There is no skill and no winning system, only a choice of how much variance you want. This page teaches the maths of why.</p>
   ${NAV}<h2 id="pl">Play with the coach</h2><div id="rlplay"></div>
   <h2 id="ln">Learn</h2>
-  <div class="card"><h3>1. The wheel</h3><p>European wheel: numbers 0-36, one green <b>0</b>. (American adds a 00, doubling the house edge to 5.26%.) A winning bet pays <b>odds : 1</b> on your stake as shown in the table below.</p></div>
-  <div class="card"><h3>2. Every bet has the same edge</h3><p>Payouts are set for 36 outcomes, but there are 37 pockets. So <b>every</b> bet loses on average <b>2.70%</b> of what you stake. Betting more often just loses more.</p>
+  <div class="card"><h3>1. The wheel and the table</h3>
+   <ul><li><b>European wheel:</b> 37 pockets, numbers 0-36. 18 red, 18 black, one green <b>0</b>. The 0 is how the casino wins. (American wheels add a 00: 38 pockets, house edge 5.26%. Avoid them.)</li>
+   <li><b>Inside bets</b> (on the numbers): straight-up (one number), split (2 numbers), street (a row of 3), corner (4), six-line (6).</li>
+   <li><b>Outside bets</b> (around the grid): red/black, odd/even, 1-18 / 19-36, dozens (1-12, 13-24, 25-36), columns (three columns of 12).</li>
+   <li>The table page you play on offers straight-up, dozens, columns and the even-money bets. Split, street, corner and six-line are explained here and pay as listed.</li></ul></div>
+  <div class="card"><h3>2. How payouts work</h3>
+   <p>A bet that wins at <b>N : 1</b> gives you N × your stake as profit <i>and</i> returns your stake. Bet $10 on a single number at 35:1 and it hits: profit $350, you collect $360. Bet $10 on a dozen at 2:1 and it hits: profit $20, you collect $30.</p>
+   <table><tr><th>Bet</th><th>Numbers covered</th><th>Pays</th></tr>
+   <tr><td>Straight-up</td><td>1</td><td><b>35:1</b></td></tr><tr><td>Split</td><td>2</td><td><b>17:1</b></td></tr><tr><td>Street</td><td>3</td><td><b>11:1</b></td></tr><tr><td>Corner</td><td>4</td><td><b>8:1</b></td></tr><tr><td>Six line</td><td>6</td><td><b>5:1</b></td></tr>
+   <tr><td>Dozen / Column</td><td>12</td><td><b>2:1</b></td></tr><tr><td>Red, Black, Odd, Even, 1-18, 19-36</td><td>18</td><td><b>1:1</b></td></tr></table>
+   <div class="tip"><b>Memory:</b> payout ≈ 36 ÷ (numbers covered) - 1. One number: 36 - 1 = 35. Twelve numbers: 3 - 1 = 2. Eighteen numbers: 2 - 1 = 1. The 0 loses every bet except a bet on 0 itself.</div></div>
+  <div class="card"><h3>3. Win chance and house edge</h3>
+   <p><b>Win chance = numbers covered ÷ 37.</b> Straight 1/37 = 2.7%. Dozen 12/37 = 32.4%. Red 18/37 = 48.6% (never 50%, because of the 0).</p>
+   <p>Payouts are set as if there were 36 pockets, but there are 37. So the <b>expected value</b> of any bet = (win chance × profit) - (lose chance × stake). For a $1 straight bet: <code>(1/37 × 35) - (36/37 × 1) = -1/37 = -2.70%</code>. For $1 on red: <code>(18/37 × 1) - (19/37 × 1) = -1/37</code>. Same for every bet.</p>
+   <p>So <b>expected loss per spin = stake ÷ 37</b>, whatever you bet on. $370 staked → expected loss $10. The more you stake in total, the more you lose.</p>
    <div id="rltab"></div>
    <div class="tip">Inside bets (a single number) are high variance: rare big wins. Outside bets (red/black) are low variance: frequent small wins. Same edge, different ride.</div></div>
-  <div class="card"><h3>3. Why "systems" fail</h3><p>The Martingale (double after each loss) wins small amounts often, then a long losing streak hits the table limit or your bankroll and wipes you out. Run the test below.</p></div>
+  <div class="card"><h3>4. Streaks, the gambler's fallacy and "systems"</h3>
+   <ul><li><b>The wheel has no memory.</b> After 8 reds in a row the chance of red is still 18/37 = 48.6%. Black is not "due". Every spin is independent.</li>
+   <li><b>Martingale</b> (double your bet after each loss) wins $10 often, then a losing streak breaks you. Bet $10 → 20 → 40 → 80 → 160 → 320 → 640 → 1280. After 7 losses you'd need a $1,280 bet. Losing 7 reds-bets in a row happens about once in every 100 rounds ((19/37)<sup>7</sup> ≈ 1%) and the table maximum often stops you doubling anyway.</li>
+   <li>Other systems (Fibonacci, D'Alembert, Labouchere) just reshuffle when you win and lose. They cannot change the expected loss per $ staked.</li>
+   <li><b>The only choices that matter:</b> European wheel (not American), small stakes, a loss limit you set before you start, and treating it as entertainment you pay for. Some tables offer <i>La Partage</i> (half your even-money stake back when 0 hits), which cuts the edge to 1.35%.</li></ul></div>
+  <div class="card"><h3>5. How to study this</h3><ol><li>Learn the payout table. Do the <b>payout drill</b> (it covers every bet above).</li><li>Learn win chance = numbers ÷ 37. <b>Chance drill</b>.</li><li>Learn expected loss = stake ÷ 37. <b>Expected-loss drill</b>.</li><li>Gambler's fallacy drill, then the Martingale drill, then run the simulation and read the result.</li></ol></div>
   <h2 id="tr">Training</h2><div id="rldr"></div>`;
   const rows = Object.entries(BETS).map(([n, [pay, w]]) => { const s = betStats(pay, w || (x => x === 17)); return `<tr><td>${n}</td><td>${pay}:1</td><td>${(s.p * 100).toFixed(1)}%</td><td>${(s.ev * 100).toFixed(2)}%</td></tr>`; });
   $('rltab').innerHTML = '<table><tr><th>Bet</th><th>Pays</th><th>Win chance</th><th>Expected value per $1</th></tr>' + rows.join('') + '</table>';
   rlTable($('rlplay'));
   const dr = $('rldr');
-  const types = Object.keys(BETS);
-  drill(dr, 'rl_pay', 'Payout drill', 6, () => {
-    const t = pick(types), pay = BETS[t][0];
-    return { html: `<p>A winning <b>${t}</b> bet pays?</p>`, opts: [['1:1', 1], ['2:1', 2], ['35:1', 35]], answer: pay, why: `${t} pays ${pay}:1 with a win chance of ${(betStats(...[pay, BETS[t][1] || (x => x === 17)]).p * 100).toFixed(1)}%.` };
+  const R = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const RB = [['Straight-up (1 number)', 35, 1], ['Split (2 numbers)', 17, 2], ['Street (3 numbers)', 11, 3], ['Corner (4 numbers)', 8, 4], ['Six line (6 numbers)', 5, 6], ['Dozen (12 numbers)', 2, 12], ['Column (12 numbers)', 2, 12], ['Red', 1, 18], ['Black', 1, 18], ['Odd', 1, 18], ['Even', 1, 18], ['1-18', 1, 18], ['19-36', 1, 18]];
+  drill(dr, 'rl_pay', 'Drill 1: Payouts (all bets)', 8, () => {
+    const [t, pay, k] = pick(RB), m = [[1, '1:1'], [2, '2:1'], [5, '5:1'], [8, '8:1'], [11, '11:1'], [17, '17:1'], [35, '35:1']];
+    return { html: `<p>A winning <b>${t}</b> bet pays?</p>`, opts: m.map(([v, l]) => [l, v]), answer: pay, why: `${t} covers ${k} numbers: 36 ÷ ${k} - 1 = <b>${pay}:1</b>.` };
   });
-  dr.appendChild(el(`<h3>Martingale test</h3><p class="dim">2000 players, 200 spins each, $1000 start, $10 base bet on Red, table max $500. Run it to pass. ${PROG.rl_sim ? '<span class="ok">(passed)</span>' : ''}</p><button class="pri run">Run simulation</button><div class="out"></div>`, 'card'));
+  drill(dr, 'rl_prob', 'Drill 2: Win chance', 8, () => {
+    const [t, , k] = pick(RB);
+    return { html: `<p>Your <b>${t}</b> bet covers <b>${k}</b> number${k > 1 ? 's' : ''} on a European wheel. Chance it wins on a spin?</p>`, opts: [1, 2, 3, 4, 6, 12, 18].map(v => [`${v}/37 (${(v / 37 * 100).toFixed(1)}%)`, v]), answer: k, why: `Chance = numbers covered ÷ 37 = ${k}/37 = <b>${(k / 37 * 100).toFixed(1)}%</b>.` };
+  });
+  drill(dr, 'rl_ev', 'Drill 3: Expected loss', 6, () => {
+    const t = pick(RB)[0], k = R(1, 10), stake = 37 * k, ans = -k;
+    return { html: `<p>You put <b>$${stake}</b> on <b>${t}</b> (European wheel). On average, what is the result of one spin?</p>`, opts: [[`+$${k}`, k], ['$0 (fair game)', 0], [`-$${k}`, -k], [`-$${stake / 2}`, -stake / 2]], answer: ans, why: `Every bet has the same edge: expected loss = stake ÷ 37 = $${stake} ÷ 37 = <b>-$${k}</b>.` };
+  });
+  drill(dr, 'rl_fall', 'Drill 4: Streaks', 5, () => {
+    const col = pick(['red', 'black']), n = R(5, 12), p = 18;
+    return { html: `<p>The ball has landed on <b>${col}</b> <b>${n}</b> times in a row. For the next spin, the chance of <b>${col}</b> is?</p>`, opts: [['Lower than 18/37 (it is "due" to change)', 'lo'], ['Exactly 18/37, about 48.6%', 'same'], ['Higher than 18/37 (streak continues)', 'hi']], answer: 'same', why: 'The wheel has no memory. Every spin is independent: red 18/37 = 48.6%, black 18/37, green 1/37. "Due" and "hot" streaks are the gambler\'s fallacy.' };
+  });
+  drill(dr, 'rl_mart', 'Drill 5: Martingale maths', 6, () => {
+    const L = R(3, 7), base = pick([5, 10, 25]), next = base * 2 ** L, lost = base * (2 ** L - 1);
+    const ask = Math.random() < 0.5;
+    return { html: `<p>Martingale on Red, starting bet <b>$${base}</b>. You lose <b>${L}</b> bets in a row. ${ask ? 'What is your <b>next bet</b>?' : 'How much have you <b>lost in total</b> so far?'}</p>`,
+      opts: [...new Set([next, lost, base * L, base * 2 * L, next * 2])].sort((a, b) => a - b).map(v => [`$${v}`, v]), answer: ask ? next : lost,
+      why: `Bets were ${Array.from({ length: L }, (_, i) => '$' + base * 2 ** i).join(' + ')} = <b>$${lost}</b> lost. The next bet doubles again: <b>$${next}</b>. To win just $${base} you'd be risking $${next}.` };
+  });
+  dr.appendChild(el(`<h3>Drill 6: Martingale simulation</h3><p class="dim">2000 players, 200 spins each, $1000 start, $10 base bet on Red, table max $500. Run it, then answer the question to pass. ${PROG.rl_sim ? '<span class="ok">(passed)</span>' : ''}</p><button class="pri run">Run simulation</button><div class="out"></div><div class="row q2" style="display:none"><span>Did the average player finish above their $1000 start?</span><button data-a="y">Yes</button><button data-a="n">No</button></div><div class="fb2"></div>`, 'card'));
   const c = dr.lastChild;
+  c.querySelectorAll('.q2 button').forEach(b => b.onclick = () => { const ok = b.dataset.a === 'n'; c.querySelector('.fb2').innerHTML = ok ? '<span class="ok">Correct.</span> The house edge makes the average negative whatever the staking system. <span class="ok">Drill passed!</span>' : '<span class="no">Look again.</span> Compare the average bankroll column with $1000.'; if (ok) pass('rl_sim'); });
   c.querySelector('.run').onclick = () => {
+    c.querySelector('.q2').style.display = '';
     const f = simulate(false), m = simulate(true), r = (n, x) => `<tr><td>${n}</td><td>$${x.avg.toFixed(0)}</td><td>${x.pctUp.toFixed(0)}%</td><td>${x.pctBust.toFixed(0)}%</td></tr>`;
     c.querySelector('.out').innerHTML = '<table><tr><th>Strategy</th><th>Avg final bankroll</th><th>Ended in profit</th><th>Went broke</th></tr>' + r('Flat $10', f) + r('Martingale', m) + '</table><div class="tip">Martingale feels great (many players profit) but the rare busts cost more than the small wins. Average still ends below $1000. Maths beats systems.</div>';
-    pass('rl_sim');
   };
 }
 function rlTable(host) {
